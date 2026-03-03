@@ -85,7 +85,7 @@ class LobsterChat:
 □ 有脏话和表情"""
         
         for name in ORDER:
-            full_prompt = f"{LOBSTERS[name]}\n\n{based_instruction}"
+            full_prompt = f"{LOBSTERS[name]}\n\n{base_instruction}"
             self.chats[name] = [{"role": "system", "content": full_prompt}]
         
         print(f"✅ 五只龙虾已激活，立场明确模式")
