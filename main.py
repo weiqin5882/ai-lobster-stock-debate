@@ -45,6 +45,10 @@ class LobsterChat:
         self.chats = {}
         self.history = []
         self.escalation_level = 0  # 撕逼升级等级
+        # Web回调函数
+        self.message_callback = None
+        self.round_callback = None
+        self.log_callback = None
         self.init_clients()
         self.init_lobsters()
     
@@ -170,8 +174,11 @@ class LobsterChat:
         except Exception as e:
             return f"【{name}掉线了】{str(e)[:50]}..."
     
-    def run_debate(self, stock_symbol="TSLA", custom_price=None):
+    def run_debate(self, stock_symbol="TSLA", custom_price=None, rounds=None):
         """运行一轮撕逼"""
+        # 使用传入的轮数或默认轮数
+        total_rounds = rounds if rounds else ROUNDS
+        
         # 初始化群聊
         if custom_price:
             stock_info = f"{stock_symbol} 当前价 ${custom_price}"
@@ -181,16 +188,32 @@ class LobsterChat:
         opening = f"📢 群公告：今天撕的股票是【{stock_info}】！各位龙虾，发表你们的看法！"
         self.history = [opening]
         
+        # Web回调
+        if self.log_callback:
+            self.log_callback(f"开始撕逼股票: {stock_symbol}")
+        
         print("\n" + "="*60)
         print("🦞 AI龙虾群聊 - 股票撕逼大会")
         print("="*60)
         print(f"\n{opening}\n")
         
+        emoji_map = {
+            "价值龙虾": "🦞",
+            "技术龙虾": "📊",
+            "Meme龙虾": "😂",
+            "阴谋龙虾": "🕵️",
+            "激进龙虾": "🔥"
+        }
+        
         # 进行多轮发言
-        for round_num in range(1, ROUNDS + 1):
+        for round_num in range(1, total_rounds + 1):
             print(f"\n{'─'*40}")
-            print(f"🔄 第 {round_num}/{ROUNDS} 轮撕逼")
+            print(f"🔄 第 {round_num}/{total_rounds} 轮撕逼")
             print('─'*40)
+            
+            # 轮次回调
+            if self.round_callback:
+                self.round_callback(round_num, total_rounds)
             
             for name in ORDER:
                 # 构建上下文（最近3条）
@@ -200,29 +223,29 @@ class LobsterChat:
                 response = self.generate_response(name, context)
                 
                 # 格式化输出
-                emoji_map = {
-                    "价值龙虾": "🦞",
-                    "技术龙虾": "📊",
-                    "Meme龙虾": "😂",
-                    "阴谋龙虾": "🕵️",
-                    "激进龙虾": "🔥"
-                }
                 emoji = emoji_map.get(name, "🦞")
                 msg = f"{emoji} **{name}**：{response}"
                 
                 print(f"\n{msg}")
                 self.history.append(msg)
                 
+                # 消息回调（用于Web实时显示）
+                if self.message_callback:
+                    self.message_callback(name, response, emoji)
+                
                 # 检查是否需要升级
                 if self.check_escalation(response):
                     self.escalation_level = min(self.escalation_level + 1, 3)
                 
                 # 小延迟增加真实感
-                time.sleep(0.5)
+                time.sleep(0.3)
         
         print("\n" + "="*60)
         print("🏁 撕逼结束！感谢收看AI龙虾群聊！")
         print("="*60)
+        
+        if self.log_callback:
+            self.log_callback("撕逼结束！")
         
         return self.history
     

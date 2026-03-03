@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦞 AI龙虾群聊 - 股票撕逼大会</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 头部 */
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #e94560;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            color: #aaa;
+            font-size: 14px;
+        }
+        
+        /* 控制面板 */
+        .control-panel {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .control-group label {
+            font-size: 14px;
+            color: #ccc;
+        }
+        
+        select, input[type="number"] {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 14px;
+            min-width: 150px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        
+        .btn {
+            padding: 10px 25px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 状态栏 */
+        .status-bar {
+            background: rgba(233, 69, 96, 0.1);
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(233, 69, 96, 0.3);
+        }
+        
+        .status-bar.running {
+            background: rgba(46, 213, 115, 0.1);
+            border-color: rgba(46, 213, 115, 0.3);
+            color: #2ed573;
+        }
+        
+        .status-bar.error {
+            background: rgba(255, 71, 87, 0.1);
+            border-color: rgba(255, 71, 87, 0.3);
+            color: #ff4757;
+        }
+        
+        /* 聊天区域 */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .welcome-msg {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+        
+        .welcome-msg h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .lobster-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        
+        .lobster-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            font-size: 13px;
+        }
+        
+        /* 消息气泡 */
+        .message {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .message-content {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px 20px;
+            border-radius: 15px;
+            border-left: 3px solid;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .message-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .message-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #ddd;
+        }
+        
+        /* 不同龙虾的颜色 */
+        .lobster-value .message-avatar { background: linear-gradient(135deg, #2ed573, #26af61); }
+        .lobster-value .message-content { border-left-color: #2ed573; }
+        .lobster-value .message-name { color: #2ed573; }
+        
+        .lobster-tech .message-avatar { background: linear-gradient(135deg, #1e90ff, #0066cc); }
+        .lobster-tech .message-content { border-left-color: #1e90ff; }
+        .lobster-tech .message-name { color: #1e90ff; }
+        
+        .lobster-meme .message-avatar { background: linear-gradient(135deg, #ffa502, #ff7f00); }
+        .lobster-meme .message-content { border-left-color: #ffa502; }
+        .lobster-meme .message-name { color: #ffa502; }
+        
+        .lobster-conspiracy .message-avatar { background: linear-gradient(135deg, #a55eea, #8854d0); }
+        .lobster-conspiracy .message-content { border-left-color: #a55eea; }
+        .lobster-conspiracy .message-name { color: #a55eea; }
+        
+        .lobster-aggressive .message-avatar { background: linear-gradient(135deg, #ff4757, #ff3838); }
+        .lobster-aggressive .message-content { border-left-color: #ff4757; }
+        .lobster-aggressive .message-name { color: #ff4757; }
+        
+        /* 系统消息 */
+        .system-message {
+            text-align: center;
+            padding: 15px;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .round-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 30px 0;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .round-divider::before,
+        .round-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 日志区域 - 固定在底部 */
+        .log-panel {
+            background: #0a0a0f;
+            border-top: 2px solid #333;
+            max-height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .log-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #888;
+        }
+        
+        .log-clear {
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+        }
+        
+        .log-clear:hover {
+            color: #fff;
+        }
+        
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .log-line {
+            color: #888;
+            margin-bottom: 3px;
+        }
+        
+        .log-line.error {
+            color: #ff4757;
+        }
+        
+        .log-line.success {
+            color: #2ed573;
+        }
+        
+        .log-line.info {
+            color: #74b9ff;
+        }
+        
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #e94560;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .control-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group {
+                justify-content: space-between;
+            }
+            
+            select, input[type="number"] {
+                min-width: unset;
+                flex: 1;
+            }
+            
+            .lobster-legend {
+                gap: 10px;
+            }
+            
+            .lobster-item {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🦞 AI龙虾群聊</h1>
+        <p>五只不同风格的AI龙虾针对股票展开激烈辩论</p>
+    </div>
+    
+    <div class="control-panel">
+        <div class="control-group">
+            <label>📈 选择股票:</label>
+            <select id="stockSelect">
+                <option value="">加载中...</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>🔄 轮数:</label>
+            <input type="number" id="roundsInput" value="6" min="1" max="10">
+        </div>
+        
+        <button class="btn btn-primary" id="startBtn" onclick="startChat()">
+            ▶ 开始撕逼
+        </button>
+        <button class="btn btn-secondary" id="clearBtn" onclick="clearChat()">
+            🗑 清空
+        </button>
+    </div>
+    
+    <div class="status-bar" id="statusBar">
+        准备就绪 - 选择股票后点击"开始撕逼"
+    </div>
+    
+    <div class="chat-container" id="chatContainer">
+        <div class="welcome-msg">
+            <h2>🦞</h2>
+            <p>欢迎来到AI龙虾群聊！</p>
+            <p>选择一支争议股票，看五只龙虾如何互撕</p>
+            
+            <div class="lobster-legend">
+                <div class="lobster-item">
+                    <span>🦞</span>
+                    <span>价值龙虾</span>
+                </div>
+                <div class="lobster-item">
+                    <span>📊</span>
+                    <span>技术龙虾</span>
+                </div>
+                <div class="lobster-item">
+                    <span>😂</span>
+                    <span>Meme龙虾</span>
+                </div>
+                <div class="lobster-item">
+                    <span>🕵️</span>
+                    <span>阴谋龙虾</span>
+                </div>
+                <div class="lobster-item">
+                    <span>🔥</span>
+                    <span>激进龙虾</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="log-panel">
+        <div class="log-header">
+            <span class="log-title">📋 系统日志</span>
+            <span class="log-clear" onclick="clearLogs()">清空</span>
+        </div>
+        <div class="log-content" id="logContent">
+            <div class="log-line info">系统启动完成，等待指令...</div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let pollInterval = null;
+        let logInterval = null;
+        
+        // 龙虾配置
+        const lobsterConfig = {
+            '价值龙虾': { class: 'lobster-value', emoji: '🦞' },
+            '技术龙虾': { class: 'lobster-tech', emoji: '📊' },
+            'Meme龙虾': { class: 'lobster-meme', emoji: '😂' },
+            '阴谋龙虾': { class: 'lobster-conspiracy', emoji: '🕵️' },
+            '激进龙虾': { class: 'lobster-aggressive', emoji: '🔥' }
+        };
+        
+        // 页面加载时获取股票列表
+        window.onload = function() {
+            loadStocks();
+            startLogPolling();
+        };
+        
+        // 加载股票列表
+        async function loadStocks() {
+            try {
+                const response = await fetch('/api/stocks');
+                const data = await response.json();
+                
+                const select = document.getElementById('stockSelect');
+                select.innerHTML = data.stocks.map(s => 
+                    `<option value="${s.symbol}">${s.symbol} - ${s.name}</option>`
+                ).join('');
+                
+                addLog('股票列表加载完成', 'success');
+            } catch (error) {
+                addLog('加载股票列表失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 开始群聊
+        async function startChat() {
+            const stock = document.getElementById('stockSelect').value;
+            const rounds = parseInt(document.getElementById('roundsInput').value);
+            
+            if (!stock) {
+                addLog('请选择股票', 'error');
+                return;
+            }
+            
+            isRunning = true;
+            updateUIState();
+            
+            // 清空聊天区
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = `
+                <div class="system-message">
+                    📢 群公告：今天撕的股票是【${stock}】！各位龙虾，发表你们的看法！
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stock, rounds })
+                });
+                
+                const data = await response.json();
+                addLog(`群聊开始: ${stock}, ${rounds}轮`, 'success');
+                
+                // 开始轮询状态
+                startPolling();
+                
+            } catch (error) {
+                addLog('启动失败: ' + error.message, 'error');
+                isRunning = false;
+                updateUIState();
+            }
+        }
+        
+        // 轮询状态
+        function startPolling() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const data = await response.json();
+                    
+                    updateStatus(data);
+                    
+                    if (!data.is_running && data.messages.length > 0) {
+                        // 结束了
+                        isRunning = false;
+                        updateUIState();
+                        clearInterval(pollInterval);
+                        addLog('群聊结束', 'success');
+                    }
+                } catch (error) {
+                    console.error('轮询错误:', error);
+                }
+            }, 1000);
+        }
+        
+        // 更新状态显示
+        function updateStatus(data) {
+            const statusBar = document.getElementById('statusBar');
+            
+            if (data.error) {
+                statusBar.textContent = `❌ 错误: ${data.error}`;
+                statusBar.className = 'status-bar error';
+                isRunning = false;
+                updateUIState();
+                return;
+            }
+            
+            if (data.is_running) {
+                statusBar.textContent = `🔄 正在撕逼中... ${data.stock} | 第 ${data.current_round}/${data.total_rounds} 轮`;
+                statusBar.className = 'status-bar running';
+            } else if (data.messages.length > 0) {
+                statusBar.textContent = `✅ 撕逼结束 - ${data.stock}`;
+                statusBar.className = 'status-bar';
+            }
+            
+            // 更新消息
+            if (data.messages && data.messages.length > 0) {
+                renderMessages(data.messages);
+            }
+        }
+        
+        // 渲染消息
+        function renderMessages(messages) {
+            const container = document.getElementById('chatContainer');
+            
+            // 保留系统公告
+            const systemMsg = container.querySelector('.system-message');
+            container.innerHTML = '';
+            if (systemMsg) container.appendChild(systemMsg);
+            
+            let lastRound = 0;
+            
+            messages.forEach((msg, index) => {
+                // 检测轮次变化（每5条消息一轮）
+                const currentRound = Math.floor(index / 5) + 1;
+                if (currentRound > lastRound && index > 0) {
+                    container.innerHTML += `
+                        <div class="round-divider">
+                            第 ${currentRound} 轮
+                        </div>
+                    `;
+                    lastRound = currentRound;
+                }
+                
+                const config = lobsterConfig[msg.name] || { class: '', emoji: '🦞' };
+                
+                const msgHtml = `
+                    <div class="message ${config.class}">
+                        <div class="message-avatar">${config.emoji}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-name">${msg.name}</span>
+                                <span class="message-time">${msg.time || ''}</span>
+                            </div>
+                            <div class="message-text">${escapeHtml(msg.message)}</div>
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML += msgHtml;
+            });
+            
+            // 滚动到底部
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 清空聊天
+        async function clearChat() {
+            if (isRunning) {
+                if (!confirm('群聊正在进行中，确定要清空吗？')) {
+                    return;
+                }
+                clearInterval(pollInterval);
+            }
+            
+            try {
+                await fetch('/api/clear', { method: 'POST' });
+                
+                document.getElementById('chatContainer').innerHTML = `
+                    <div class="welcome-msg">
+                        <h2>🦞</h2>
+                        <p>欢迎来到AI龙虾群聊！</p>
+                        <p>选择一支争议股票，看五只龙虾如何互撕</p>
+                        
+                        <div class="lobster-legend">
+                            <div class="lobster-item">
+                                <span>🦞</span>
+                                <span>价值龙虾</span>
+                            </div>
+                            <div class="lobster-item">
+                                <span>📊</span>
+                                <span>技术龙虾</span>
+                            </div>
+                            <div class="lobster-item">
+                                <span>😂</span>
+                                <span>Meme龙虾</span>
+                            </div>
+                            <div class="lobster-item">
+                                <span>🕵️</span>
+                                <span>阴谋龙虾</span>
+                            </div>
+                            <div class="lobster-item">
+                                <span>🔥</span>
+                                <span>激进龙虾</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('statusBar').textContent = '准备就绪 - 选择股票后点击"开始撕逼"';
+                document.getElementById('statusBar').className = 'status-bar';
+                
+                isRunning = false;
+                updateUIState();
+                
+                addLog('聊天记录已清空', 'info');
+                
+            } catch (error) {
+                addLog('清空失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 轮询日志
+        function startLogPolling() {
+            logInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/logs');
+                    const data = await response.json();
+                    
+                    updateLogDisplay(data.logs);
+                } catch (error) {
+                    console.error('日志轮询错误:', error);
+                }
+            }, 2000);
+        }
+        
+        // 更新日志显示
+        function updateLogDisplay(logs) {
+            const logContent = document.getElementById('logContent');
+            logContent.innerHTML = logs.map(line => {
+                let className = 'log-line';
+                if (line.includes('错误') || line.includes('Error')) className += ' error';
+                else if (line.includes('完成') || line.includes('成功')) className += ' success';
+                else if (line.includes('开始') || line.includes('等待')) className += ' info';
+                return `<div class="${className}">${escapeHtml(line)}</div>`;
+            }).join('');
+            
+            // 滚动到底部
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+        
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logContent = document.getElementById('logContent');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'log-line error' : 
+                             type === 'success' ? 'log-line success' : 'log-line info';
+            
+            logContent.innerHTML += `<div class="${className}">[${timestamp}] ${escapeHtml(message)}</div>`;
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+        
+        // 清空日志
+        function clearLogs() {
+            document.getElementById('logContent').innerHTML = '<div class="log-line info">日志已清空...</div>';
+        }
+        
+        // 更新UI状态
+        function updateUIState() {
+            const startBtn = document.getElementById('startBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const stockSelect = document.getElementById('stockSelect');
+            const roundsInput = document.getElementById('roundsInput');
+            
+            if (isRunning) {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<span class="loading"></span> 撕逼中...';
+                clearBtn.disabled = false;
+                stockSelect.disabled = true;
+                roundsInput.disabled = true;
+            } else {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '▶ 开始撕逼';
+                clearBtn.disabled = false;
+                stockSelect.disabled = false;
+                roundsInput.disabled = false;
+            }
+        }
+        
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
