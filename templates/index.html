@@ -386,10 +386,15 @@
     
     <div class="control-panel">
         <div class="control-group">
-            <label>📈 选择股票:</label>
-            <select id="stockSelect">
+            <label>💬 选择话题:</label>
+            <select id="topicSelect" onchange="onTopicChange()">
                 <option value="">加载中...</option>
             </select>
+        </div>
+        
+        <div class="control-group" id="customTopicGroup" style="display:none;">
+            <label>✏️ 自定义:</label>
+            <input type="text" id="customTopic" placeholder="输入任何话题..." style="min-width: 200px;">
         </div>
         
         <div class="control-group">
@@ -406,14 +411,14 @@
     </div>
     
     <div class="status-bar" id="statusBar">
-        准备就绪 - 选择股票后点击"开始撕逼"
+        准备就绪 - 选择话题后点击"开始撕逼"
     </div>
     
     <div class="chat-container" id="chatContainer">
         <div class="welcome-msg">
             <h2>🦞</h2>
             <p>欢迎来到AI龙虾群聊！</p>
-            <p>选择一支争议股票，看五只龙虾如何互撕</p>
+            <p>选择热门话题或输入自定义话题，看五只龙虾如何互撕</p>
             
             <div class="lobster-legend">
                 <div class="lobster-item">
@@ -464,38 +469,63 @@
             '激进龙虾': { class: 'lobster-aggressive', emoji: '🔥' }
         };
         
-        // 页面加载时获取股票列表
+        // 页面加载时获取话题列表
         window.onload = function() {
-            loadStocks();
+            loadTopics();
             startLogPolling();
         };
         
-        // 加载股票列表
-        async function loadStocks() {
+        // 加载话题列表
+        async function loadTopics() {
             try {
-                const response = await fetch('/api/stocks');
+                const response = await fetch('/api/topics');
                 const data = await response.json();
                 
-                const select = document.getElementById('stockSelect');
-                select.innerHTML = data.stocks.map(s => 
-                    `<option value="${s.symbol}">${s.symbol} - ${s.name}</option>`
-                ).join('');
+                const select = document.getElementById('topicSelect');
+                select.innerHTML = '<option value="">-- 选择热门话题 --</option>' +
+                    data.topics.map(t => 
+                        `<option value="${t.text}">${t.text}</option>`
+                    ).join('') +
+                    '<option value="custom">✏️ 自定义话题...</option>';
                 
-                addLog('股票列表加载完成', 'success');
+                addLog('话题列表加载完成', 'success');
             } catch (error) {
-                addLog('加载股票列表失败: ' + error.message, 'error');
+                addLog('加载话题列表失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 话题选择变化
+        function onTopicChange() {
+            const select = document.getElementById('topicSelect');
+            const customGroup = document.getElementById('customTopicGroup');
+            
+            if (select.value === 'custom') {
+                customGroup.style.display = 'flex';
+                document.getElementById('customTopic').focus();
+            } else {
+                customGroup.style.display = 'none';
             }
         }
         
         // 开始群聊
         async function startChat() {
-            const stock = document.getElementById('stockSelect').value;
-            const rounds = parseInt(document.getElementById('roundsInput').value);
+            const topicSelect = document.getElementById('topicSelect');
+            let topic;
             
-            if (!stock) {
-                addLog('请选择股票', 'error');
+            if (topicSelect.value === 'custom') {
+                topic = document.getElementById('customTopic').value.trim();
+                if (!topic) {
+                    addLog('请输入自定义话题', 'error');
+                    return;
+                }
+            } else if (topicSelect.value) {
+                topic = topicSelect.value;
+            } else {
+                addLog('请选择或输入话题', 'error');
                 return;
             }
+            
+            const rounds = parseInt(document.getElementById('roundsInput').value);
             
             isRunning = true;
             updateUIState();
@@ -504,7 +534,7 @@
             const container = document.getElementById('chatContainer');
             container.innerHTML = `
                 <div class="system-message">
-                    📢 群公告：今天撕的股票是【${stock}】！各位龙虾，发表你们的看法！
+                    📢 群公告：今天撕的话题是【${topic}】！各位龙虾，发表你们的看法！
                 </div>
             `;
             
@@ -512,11 +542,11 @@
                 const response = await fetch('/api/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stock, rounds })
+                    body: JSON.stringify({ topic, rounds })
                 });
                 
                 const data = await response.json();
-                addLog(`群聊开始: ${stock}, ${rounds}轮`, 'success');
+                addLog(`群聊开始: ${topic}, ${rounds}轮`, 'success');
                 
                 // 开始轮询状态
                 startPolling();
@@ -563,10 +593,10 @@
             }
             
             if (data.is_running) {
-                statusBar.textContent = `🔄 正在撕逼中... ${data.stock} | 第 ${data.current_round}/${data.total_rounds} 轮`;
+                statusBar.textContent = `🔄 正在撕逼中... ${data.topic} | 第 ${data.current_round}/${data.total_rounds} 轮`;
                 statusBar.className = 'status-bar running';
             } else if (data.messages.length > 0) {
-                statusBar.textContent = `✅ 撕逼结束 - ${data.stock}`;
+                statusBar.textContent = `✅ 撕逼结束 - ${data.topic}`;
                 statusBar.className = 'status-bar';
             }
             

@@ -2,6 +2,7 @@
 """
 AI龙虾群聊 - Web版
 Flask Web服务器，端口3000
+支持自定义话题输入
 """
 
 import os
@@ -44,7 +45,7 @@ app.config['JSON_AS_ASCII'] = False
 # 存储当前聊天状态
 chat_state = {
     'is_running': False,
-    'stock': None,
+    'topic': None,
     'messages': [],
     'current_round': 0,
     'total_rounds': 0,
@@ -56,14 +57,14 @@ def index():
     """主页"""
     return render_template('index.html')
 
-@app.route('/api/stocks')
-def get_stocks():
-    """获取可选股票列表"""
-    from lobsters import CONTROVERSIAL_STOCKS
+@app.route('/api/topics')
+def get_topics():
+    """获取可选话题列表"""
+    from lobsters import HOT_TOPICS
     return jsonify({
-        'stocks': [
-            {'symbol': s.split(' - ')[0], 'name': s.split(' - ')[1] if ' - ' in s else s}
-            for s in CONTROVERSIAL_STOCKS
+        'topics': [
+            {'id': i, 'text': t}
+            for i, t in enumerate(HOT_TOPICS)
         ]
     })
 
@@ -73,15 +74,15 @@ def start_chat():
     global chat_state
     
     data = request.json
-    stock = data.get('stock', 'TSLA')
+    topic = data.get('topic', 'AI人工智能')
     rounds = data.get('rounds', 6)
     
     log_buffer.clear()
-    log_buffer.write(f"开始新的群聊: {stock}, {rounds}轮")
+    log_buffer.write(f"开始新的群聊: {topic}, {rounds}轮")
     
     chat_state = {
         'is_running': True,
-        'stock': stock,
+        'topic': topic,
         'messages': [],
         'current_round': 0,
         'total_rounds': rounds,
@@ -90,11 +91,11 @@ def start_chat():
     
     # 在后台线程运行聊天
     import threading
-    thread = threading.Thread(target=run_chat_thread, args=(stock, rounds))
+    thread = threading.Thread(target=run_chat_thread, args=(topic, rounds))
     thread.daemon = True
     thread.start()
     
-    return jsonify({'status': 'started', 'stock': stock, 'rounds': rounds})
+    return jsonify({'status': 'started', 'topic': topic, 'rounds': rounds})
 
 @app.route('/api/status')
 def get_status():
@@ -112,7 +113,7 @@ def clear_chat():
     global chat_state
     chat_state = {
         'is_running': False,
-        'stock': None,
+        'topic': None,
         'messages': [],
         'current_round': 0,
         'total_rounds': 0,
@@ -121,7 +122,7 @@ def clear_chat():
     log_buffer.clear()
     return jsonify({'status': 'cleared'})
 
-def run_chat_thread(stock, rounds):
+def run_chat_thread(topic, rounds):
     """在后台线程运行聊天"""
     global chat_state
     
@@ -139,7 +140,7 @@ def run_chat_thread(stock, rounds):
         chat.log_callback = log_callback
         
         # 运行辩论
-        chat.run_debate(stock, rounds=rounds)
+        chat.run_debate(topic, rounds=rounds)
         
         chat_state['is_running'] = False
         log_buffer.write("群聊结束！")

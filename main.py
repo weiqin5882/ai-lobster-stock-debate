@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-AI龙虾群聊撕股票 - 核心脚本
-五只不同风格的AI龙虾针对股票进行辩论
+AI龙虾群聊 - 核心脚本
+五只不同风格的AI龙虾针对任何话题进行激烈辩论
 """
 
 import os
 import sys
-import random
 import time
 from datetime import datetime
 from dotenv import load_dotenv
@@ -20,7 +19,7 @@ except ImportError:
     from openai import OpenAI
     USE_XAI_SDK = False
 
-from lobsters import LOBSTERS, ORDER, CONTROVERSIAL_STOCKS, ESCALATION_TRIGGERS
+from lobsters import LOBSTERS, ORDER, HOT_TOPICS, ESCALATION_TRIGGERS
 
 # 加载环境变量
 load_dotenv()
@@ -67,7 +66,7 @@ class LobsterChat:
     
     def init_lobsters(self):
         """为每只龙虾创建独立的chat会话"""
-        base_instruction = """你是AI龙虾群聊的一员，专注股票分析。
+        base_instruction = """你是AI龙虾群聊的一员，专业辩手。
 
 【群聊规则】：
 1. 每次发言必须@上一位发言的龙虾
@@ -81,6 +80,7 @@ class LobsterChat:
 - 语气要激烈但有趣
 - 可以适当带网络用语、梗
 - 目的是制造节目效果，观众爱看互撕
+- 针对话题发表你的观点，用你的风格猛烈输出
 """
         
         for name in ORDER:
@@ -98,25 +98,6 @@ class LobsterChat:
                 ]
         
         print(f"✅ 已初始化 {len(ORDER)} 只龙虾")
-    
-    def get_stock_info(self, symbol):
-        """获取股票信息（简单版本，可扩展接入真实API）"""
-        # 这里可以接入yfinance获取真实数据
-        # 为了快速启动，先用模拟数据
-        stock_prices = {
-            "TSLA": 420.00,
-            "GME": 28.50,
-            "NVDA": 875.30,
-            "PLTR": 85.20,
-            "COIN": 195.40,
-            "HOOD": 18.75,
-            "AMC": 5.20,
-            "RIVN": 12.80
-        }
-        
-        if symbol in stock_prices:
-            return f"{symbol} 当前价 ${stock_prices[symbol]}"
-        return f"{symbol} （价格待获取）"
     
     def check_escalation(self, text):
         """检查是否需要升级撕逼强度"""
@@ -174,26 +155,26 @@ class LobsterChat:
         except Exception as e:
             return f"【{name}掉线了】{str(e)[:50]}..."
     
-    def run_debate(self, stock_symbol="TSLA", custom_price=None, rounds=None):
-        """运行一轮撕逼"""
+    def run_debate(self, topic="AI人工智能", rounds=None):
+        """运行一轮撕逼
+        
+        Args:
+            topic: 辩论话题，可以是任何主题
+            rounds: 轮数，默认6轮
+        """
         # 使用传入的轮数或默认轮数
         total_rounds = rounds if rounds else ROUNDS
         
         # 初始化群聊
-        if custom_price:
-            stock_info = f"{stock_symbol} 当前价 ${custom_price}"
-        else:
-            stock_info = self.get_stock_info(stock_symbol)
-        
-        opening = f"📢 群公告：今天撕的股票是【{stock_info}】！各位龙虾，发表你们的看法！"
+        opening = f"📢 群公告：今天撕的话题是【{topic}】！各位龙虾，发表你们的看法！"
         self.history = [opening]
         
         # Web回调
         if self.log_callback:
-            self.log_callback(f"开始撕逼股票: {stock_symbol}")
+            self.log_callback(f"开始撕逼话题: {topic}")
         
         print("\n" + "="*60)
-        print("🦞 AI龙虾群聊 - 股票撕逼大会")
+        print("🦞 AI龙虾群聊 - 话题撕逼大会")
         print("="*60)
         print(f"\n{opening}\n")
         
@@ -256,7 +237,7 @@ class LobsterChat:
             filename = f"lobster_chat_{timestamp}.txt"
         
         with open(filename, "w", encoding="utf-8") as f:
-            f.write("AI龙虾群聊 - 股票撕逼记录\n")
+            f.write("AI龙虾群聊 - 话题撕逼记录\n")
             f.write(f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("="*60 + "\n\n")
             for line in self.history:
@@ -269,31 +250,26 @@ def main():
     """主函数"""
     print("\n🦞 欢迎使用 AI龙虾群聊系统！\n")
     
-    # 选择股票
-    print("可选的争议性股票（撕逼效果最佳）：")
-    for i, stock in enumerate(CONTROVERSIAL_STOCKS, 1):
-        print(f"  {i}. {stock}")
+    # 选择话题
+    print("可选的热门话题（撕逼效果最佳）：")
+    for i, topic in enumerate(HOT_TOPICS, 1):
+        print(f"  {i}. {topic}")
     print("  0. 自定义输入")
     
     try:
-        choice = input("\n请选择股票编号 (默认1-TSLA): ").strip()
+        choice = input("\n请选择话题编号 (默认1): ").strip()
         if choice == "0":
-            stock = input("输入股票代码（如AAPL）: ").strip().upper()
-            price = input("输入当前价格（可选）: ").strip()
-            price = float(price) if price else None
-        elif choice and choice.isdigit() and 1 <= int(choice) <= len(CONTROVERSIAL_STOCKS):
-            stock = CONTROVERSIAL_STOCKS[int(choice)-1].split(" - ")[0]
-            price = None
+            topic = input("输入自定义话题: ").strip()
+        elif choice and choice.isdigit() and 1 <= int(choice) <= len(HOT_TOPICS):
+            topic = HOT_TOPICS[int(choice)-1].split(" - ")[0]
         else:
-            stock = "TSLA"
-            price = None
+            topic = HOT_TOPICS[0].split(" - ")[0]
     except (ValueError, IndexError):
-        stock = "TSLA"
-        price = None
+        topic = HOT_TOPICS[0].split(" - ")[0]
     
     # 创建群聊并运行
     chat = LobsterChat()
-    chat.run_debate(stock, price)
+    chat.run_debate(topic)
     
     # 保存记录
     save = input("\n是否保存对话记录？(y/n): ").strip().lower()
