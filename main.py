@@ -150,7 +150,13 @@ CEO命令：首句亮立场+真实数据+专业认知+@怼人+脏话表情
                     max_tokens=MAX_TOKENS
                 )
                 
+                # 安全获取内容
+                if not response or not response.choices:
+                    raise ValueError("API返回空响应")
+                
                 content = response.choices[0].message.content.strip()
+                if not content:
+                    raise ValueError("API返回空内容")
                 
                 # CEO质检
                 has_stance, has_number, has_mention, length_ok = self.check_stance_valid(content)
@@ -180,8 +186,14 @@ CEO命令：首句亮立场+真实数据+专业认知+@怼人+脏话表情
                         return self._force_correct(content, name)
                         
             except Exception as e:
+                error_msg = str(e)
+                if self.log_callback:
+                    self.log_callback(f"❌ {name} API错误: {error_msg[:50]}")
+                
                 if attempt == max_retries - 1:
-                    return f"【{name}掉线】{str(e)[:20]}..."
+                    # 返回符合格式的默认发言
+                    next_lobster = ORDER[(ORDER.index(name)+1) % 5]
+                    return f"我赌中性！API连接失败数据获取中断，@{next_lobster} 你继续秀本龙虾网络卡了🖕"
         
         return f"【{name}发言失败】"
     
