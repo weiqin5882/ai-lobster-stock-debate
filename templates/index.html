@@ -137,6 +137,39 @@
             background: rgba(116, 185, 255, 0.4);
         }
         
+        /* CEO立场统计面板 */
+        .stance-panel {
+            background: linear-gradient(135deg, rgba(233, 69, 96, 0.1) 0%, rgba(116, 185, 255, 0.1) 100%);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 20px;
+        }
+        .stance-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffd700;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .stance-list {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .stance-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 8px 15px;
+            font-size: 13px;
+        }
+        .stance-item .name {
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .stance-yes { color: #2ed573; }
+        .stance-no { color: #ff4757; }
+        .stance-neutral { color: #ffa502; }
+        
         /* 状态栏 */
         .status-bar {
             background: rgba(233, 69, 96, 0.1);
@@ -351,6 +384,12 @@
         <button class="btn btn-secondary" id="clearBtn" onclick="clearChat()">🗑 清空</button>
     </div>
     
+    <!-- CEO立场统计面板 -->
+    <div class="stance-panel" id="stancePanel" style="display: none;">
+        <div class="stance-title">📊 CEO立场统计</div>
+        <div class="stance-list" id="stanceList"></div>
+    </div>
+    
     <div class="status-bar" id="statusBar">准备就绪 - 选择上方Polymarket市场或输入自定义话题</div>
     
     <div class="chat-container" id="chatContainer">
@@ -541,6 +580,37 @@
             if (data.messages && data.messages.length > 0) {
                 renderMessages(data.messages);
             }
+            
+            // CEO立场统计
+            if (data.stance_stats && Object.keys(data.stance_stats).length > 0) {
+                updateStanceStats(data.stance_stats);
+            }
+        }
+        
+        function updateStanceStats(stats) {
+            const panel = document.getElementById('stancePanel');
+            const list = document.getElementById('stanceList');
+            
+            let html = '';
+            for (const [name, stances] of Object.entries(stats)) {
+                const yes = stances.filter(s => s === 'Yes').length;
+                const no = stances.filter(s => s === 'No').length;
+                const neutral = stances.filter(s => s === 'Neutral').length;
+                
+                const dominant = yes > no ? 'stance-yes' : (no > yes ? 'stance-no' : 'stance-neutral');
+                const dominantText = yes > no ? '看多' : (no > yes ? '看空' : '中性');
+                
+                html += `
+                    <div class="stance-item">
+                        <span class="name">${name}</span>
+                        <span class="${dominant}">${dominantText}</span>
+                        <span style="color:#888; margin-left:8px;">Y${yes} N${no} 中${neutral}</span>
+                    </div>
+                `;
+            }
+            
+            list.innerHTML = html;
+            panel.style.display = 'block';
         }
         
         function renderMessages(messages) {

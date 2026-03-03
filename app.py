@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """
-AI龙虾群聊 - Web版
-Flask Web服务器，端口3000
-支持多API: xAI (Grok) / Deepseek
-支持Polymarket每日热门市场推荐
+AI龙虾群聊 - CEO全权负责版 Web服务器
+端口3000 | 立场明确 + 多数据源 + 质量监控
 """
 
 import os
 import sys
 import json
-import logging
 from datetime import datetime, timedelta
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
@@ -17,28 +14,15 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
-# API配置
-API_PROVIDER = os.getenv("API_PROVIDER", "deepseek").lower()
-
-if API_PROVIDER == "xai":
-    API_KEY = os.getenv("XAI_API_KEY")
-    BASE_URL = "https://api.x.ai/v1"
-    MODEL = "grok-2-latest"
-elif API_PROVIDER == "deepseek":
-    API_KEY = os.getenv("DEEPSEEK_API_KEY")
-    BASE_URL = "https://api.deepseek.com"
-    MODEL = "deepseek-chat"
-else:
-    API_KEY = None
-    BASE_URL = None
-    MODEL = None
+# 导入CEO数据模块
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from data_provider import data_provider, save_markets_data
 
 # Polymarket数据路径
 HOT_MARKETS_FILE = 'data/hot_markets.json'
 
-# 配置日志 - 同时输出到文件和内存
+# 配置日志
 class LogBuffer:
-    """内存日志缓冲区，用于在网页显示"""
     def __init__(self, max_lines=100):
         self.lines = []
         self.max_lines = max_lines
@@ -62,18 +46,24 @@ app = Flask(__name__)
 app.config['PORT'] = 3000
 app.config['JSON_AS_ASCII'] = False
 
-# 存储当前聊天状态
+# 聊天状态
 chat_state = {
     'is_running': False,
     'topic': None,
     'messages': [],
     'current_round': 0,
     'total_rounds': 0,
+    'stance_stats': {},  # CEO新增：立场统计
     'error': None
 }
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/hot-markets')
 def get_hot_markets():
-    """获取热门市场数据"""
+    """获取热门市场"""
     try:
         with open(HOT_MARKETS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -81,7 +71,18 @@ def get_hot_markets():
         markets = data.get('markets', [])
         updated_at = data.get('updated_at', '')
         
-        # 格式化市场数据
+        # 计算数据年龄
+        data_age = "未知"
+        try:
+            updated = datetime.fromisoformat(updated_at)
+            age = datetime.now() - updated
+            if age < timedelta(hours=1):
+                data_age = f"{age.seconds // 60}分钟前"
+            else:
+                data_age = f"{age.seconds // 3600}小时前"
+        except:
+            pass
+        
         formatted = []
         for m in markets:
             outcomes_str = ' / '.join([
@@ -93,73 +94,44 @@ def get_hot_markets():
                 'question': m.get('question', ''),
                 'outcomes': outcomes_str,
                 'volume': m.get('volume', 0),
-                'url': m.get('url', ''),
-                'updated_at': updated_at
             })
         
-        return formatted
+        return jsonify({'markets': formatted, 'count': len(formatted), 'data_age': data_age})
     except Exception as e:
-        print(f"读取市场数据失败: {e}")
-        return []
+        return jsonify({'markets': [], 'error': str(e)})
 
-@app.route('/')
-def index():
-    """主页"""
-    return render_template('index.html', api_provider=API_PROVIDER.upper())
-
-@app.route('/api/config')
-def get_config():
-    """获取API配置"""
-    return jsonify({
-        'api_provider': API_PROVIDER,
-        'model': MODEL,
-        'api_key_configured': bool(API_KEY)
-    })
-
-@app.route('/api/hot-markets')
-def get_hot_markets_api():
-    """获取Polymarket热门市场"""
-    markets = get_hot_markets()
-    
-    # 检查数据是否过期
-    data_age = "未知"
+@app.route('/api/stock/<symbol>')
+def get_stock(symbol):
+    """获取股票数据"""
     try:
-        with open(HOT_MARKETS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            updated_at = datetime.fromisoformat(data.get('updated_at', '2000-01-01'))
-            age = datetime.now() - updated_at
-            if age < timedelta(hours=1):
-                data_age = f"{age.seconds // 60}分钟前"
-            else:
-                data_age = f"{age.seconds // 3600}小时前"
-    except:
-        pass
-    
-    return jsonify({
-        'markets': markets,
-        'count': len(markets),
-        'data_age': data_age
-    })
+        data = data_provider.get_stock_data(symbol.upper())
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 @app.route('/api/start', methods=['POST'])
 def start_chat():
-    """开始新的群聊"""
+    """开始投研"""
     global chat_state
     
-    # 检查API Key
+    API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("XAI_API_KEY")
     if not API_KEY:
-        error_msg = f"未配置 {API_PROVIDER.upper()}_API_KEY"
-        log_buffer.write(f"错误: {error_msg}")
-        return jsonify({'status': 'error', 'error': error_msg}), 400
+        return jsonify({'status': 'error', 'error': 'API Key未配置'}), 400
     
     data = request.json
-    topic = data.get('topic', 'AI人工智能')
+    topic = data.get('topic', 'TSLA')
     rounds = data.get('rounds', 6)
-    market_data = data.get('market_data', None)  # 可选的市场数据
+    market_data = data.get('market_data')
+    
+    # 尝试获取股票数据
+    stock_data = None
+    for symbol in ['TSLA', 'NVDA', 'AAPL', 'BTC']:
+        if symbol in topic.upper():
+            stock_data = data_provider.get_stock_data(symbol)
+            break
     
     log_buffer.clear()
-    log_buffer.write(f"使用 {API_PROVIDER.upper()} API")
-    log_buffer.write(f"开始新的群聊: {topic}, {rounds}轮")
+    log_buffer.write(f"CEO启动投研: {topic}")
     
     chat_state = {
         'is_running': True,
@@ -167,12 +139,12 @@ def start_chat():
         'messages': [],
         'current_round': 0,
         'total_rounds': rounds,
+        'stance_stats': {},
         'error': None
     }
     
-    # 在后台线程运行聊天
     import threading
-    thread = threading.Thread(target=run_chat_thread, args=(topic, rounds, market_data))
+    thread = threading.Thread(target=run_chat_thread, args=(topic, rounds, market_data, stock_data))
     thread.daemon = True
     thread.start()
     
@@ -180,17 +152,14 @@ def start_chat():
 
 @app.route('/api/status')
 def get_status():
-    """获取当前状态"""
     return jsonify(chat_state)
 
 @app.route('/api/logs')
 def get_logs():
-    """获取日志"""
     return jsonify({'logs': log_buffer.get_logs()})
 
 @app.route('/api/clear', methods=['POST'])
 def clear_chat():
-    """清除聊天"""
     global chat_state
     chat_state = {
         'is_running': False,
@@ -198,6 +167,7 @@ def clear_chat():
         'messages': [],
         'current_round': 0,
         'total_rounds': 0,
+        'stance_stats': {},
         'error': None
     }
     log_buffer.clear()
@@ -205,62 +175,53 @@ def clear_chat():
 
 @app.route('/api/update-markets', methods=['POST'])
 def update_markets():
-    """手动触发更新市场数据"""
+    """CEO手动更新市场数据"""
     try:
-        from polymarket import update_hot_markets
-        success = update_hot_markets()
-        if success:
-            return jsonify({'status': 'success', 'message': '市场数据已更新'})
+        log_buffer.write("CEO手动更新市场数据...")
+        markets = data_provider.get_polymarket_hot(20)
+        if markets:
+            save_markets_data(markets)
+            log_buffer.write(f"✅ 更新成功，获取{len(markets)}个市场")
+            return jsonify({'status': 'success', 'count': len(markets)})
         else:
-            return jsonify({'status': 'error', 'message': '更新失败'}), 500
+            return jsonify({'status': 'error', 'message': '获取失败'}), 500
     except Exception as e:
+        log_buffer.write(f"❌ 更新失败: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def run_chat_thread(topic, rounds, market_data=None):
-    """在后台线程运行聊天"""
+def run_chat_thread(topic, rounds, market_data=None, stock_data=None):
+    """CEO监督下的投研线程"""
     global chat_state
     
     try:
-        # 导入必要的模块
-        sys.path.insert(0, '/root/.openclaw/workspace/lobster-ai')
         from main import LobsterChat
         
-        log_buffer.write("初始化龙虾群聊...")
+        log_buffer.write("CEO初始化龙虾群聊...")
         chat = LobsterChat()
+        chat.set_market_data(market_data, stock_data)
         
-        # 设置回调函数来更新消息
         chat.message_callback = add_message_callback
         chat.round_callback = update_round_callback
         chat.log_callback = log_callback
         
-        # 如果有市场数据，添加到话题中
-        if market_data:
-            full_topic = f"""{topic}
-
-【Polymarket市场数据】
-问题: {market_data.get('question', '')}
-当前赔率: {market_data.get('outcomes', '')}
-交易量: ${market_data.get('volume', 0):,.0f}
-"""
-        else:
-            full_topic = topic
+        log_buffer.write("开始立场明确投研对决...")
+        chat.run_debate(topic, rounds=rounds)
         
-        # 运行辩论
-        chat.run_debate(full_topic, rounds=rounds)
-        
+        # 保存立场统计
+        chat_state['stance_stats'] = chat.stance_stats
         chat_state['is_running'] = False
-        log_buffer.write("群聊结束！")
+        
+        log_buffer.write("✅ CEO投研结束")
         
     except Exception as e:
         error_msg = str(e)
         chat_state['error'] = error_msg
         chat_state['is_running'] = False
-        log_buffer.write(f"错误: {error_msg}")
+        log_buffer.write(f"❌ CEO错误: {error_msg}")
         import traceback
         log_buffer.write(traceback.format_exc())
 
 def add_message_callback(lobster_name, message, emoji):
-    """添加消息的回调"""
     chat_state['messages'].append({
         'name': lobster_name,
         'message': message,
@@ -269,20 +230,22 @@ def add_message_callback(lobster_name, message, emoji):
     })
 
 def update_round_callback(current, total):
-    """更新轮次的回调"""
     chat_state['current_round'] = current
     chat_state['total_rounds'] = total
     log_buffer.write(f"第 {current}/{total} 轮")
 
 def log_callback(msg):
-    """日志回调"""
     log_buffer.write(msg)
 
 if __name__ == '__main__':
-    print("🦞 AI龙虾群聊 Web服务器启动中...")
-    print(f"API提供商: {API_PROVIDER.upper()}")
-    print(f"模型: {MODEL}")
-    print(f"访问地址: http://localhost:3000")
-    print("按 Ctrl+C 停止服务器\n")
+    print("\n" + "="*60)
+    print("🦞 AI龙虾群聊 - CEO全权负责版")
+    print("="*60)
+    print("核心特性：")
+    print("  ✓ 立场明确（我赌Yes/No/中性）")
+    print("  ✓ 多数据源（Polymarket + Yahoo Finance）")
+    print("  ✓ CEO质量监控")
+    print("="*60)
+    print(f"\n访问地址: http://localhost:3000\n")
     
     app.run(host='0.0.0.0', port=3000, debug=False)
