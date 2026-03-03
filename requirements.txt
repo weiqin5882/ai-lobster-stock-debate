@@ -1,0 +1,4 @@
+xai-sdk>=0.0.1
+python-dotenv>=1.0.0
+yfinance>=0.2.36
+gTTS>=2.4.0
