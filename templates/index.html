@@ -3,14 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🦞 AI龙虾群聊 - 股票撕逼大会</title>
+    <title>🦞 AI龙虾群聊 - Polymarket投研版</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -19,23 +14,63 @@
             display: flex;
             flex-direction: column;
         }
-        
-        /* 头部 */
         .header {
             background: rgba(0, 0, 0, 0.3);
             padding: 20px;
             text-align: center;
             border-bottom: 2px solid #e94560;
         }
+        .header h1 { font-size: 28px; margin-bottom: 5px; }
+        .header p { color: #aaa; font-size: 14px; }
+        .header .subtitle { color: #74b9ff; font-size: 12px; margin-top: 5px; }
         
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 5px;
+        /* 热门市场 */
+        .hot-markets-panel {
+            background: rgba(116, 185, 255, 0.1);
+            border-bottom: 1px solid rgba(116, 185, 255, 0.3);
+            padding: 15px 20px;
         }
-        
-        .header p {
-            color: #aaa;
-            font-size: 14px;
+        .hot-markets-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .hot-markets-title { font-size: 14px; color: #74b9ff; font-weight: 600; }
+        .hot-markets-meta { font-size: 12px; color: #888; }
+        .hot-markets-list {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+        .market-tag {
+            flex-shrink: 0;
+            background: rgba(116, 185, 255, 0.15);
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            border-radius: 20px;
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .market-tag:hover {
+            background: rgba(116, 185, 255, 0.3);
+            border-color: #74b9ff;
+            transform: translateY(-2px);
+        }
+        .market-tag.active {
+            background: #74b9ff;
+            color: #1a1a2e;
+        }
+        .market-tag .odds {
+            color: #ffd700;
+            font-size: 11px;
+            margin-left: 5px;
         }
         
         /* 控制面板 */
@@ -49,33 +84,24 @@
             justify-content: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
         .control-group {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        
-        .control-group label {
-            font-size: 14px;
-            color: #ccc;
-        }
-        
-        select, input[type="number"] {
+        .control-group label { font-size: 14px; color: #ccc; }
+        input[type="text"], input[type="number"] {
             padding: 10px 15px;
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             background: rgba(0, 0, 0, 0.3);
             color: #fff;
             font-size: 14px;
-            min-width: 150px;
         }
-        
-        select:focus, input:focus {
+        input[type="text"]:focus, input[type="number"]:focus {
             outline: none;
             border-color: #e94560;
         }
-        
         .btn {
             padding: 10px 25px;
             border-radius: 8px;
@@ -85,29 +111,30 @@
             transition: all 0.3s;
             font-weight: 600;
         }
-        
         .btn-primary {
             background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
             color: white;
         }
-        
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
         }
-        
         .btn-secondary {
             background: rgba(255, 255, 255, 0.1);
             color: #fff;
         }
-        
         .btn-secondary:hover:not(:disabled) {
             background: rgba(255, 255, 255, 0.2);
         }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-refresh {
+            background: rgba(116, 185, 255, 0.2);
+            color: #74b9ff;
+            padding: 8px 15px;
+            font-size: 12px;
+        }
+        .btn-refresh:hover:not(:disabled) {
+            background: rgba(116, 185, 255, 0.4);
         }
         
         /* 状态栏 */
@@ -118,13 +145,11 @@
             font-size: 14px;
             border-bottom: 1px solid rgba(233, 69, 96, 0.3);
         }
-        
         .status-bar.running {
             background: rgba(46, 213, 115, 0.1);
             border-color: rgba(46, 213, 115, 0.3);
             color: #2ed573;
         }
-        
         .status-bar.error {
             background: rgba(255, 71, 87, 0.1);
             border-color: rgba(255, 71, 87, 0.3);
@@ -140,18 +165,12 @@
             margin: 0 auto;
             width: 100%;
         }
-        
         .welcome-msg {
             text-align: center;
             padding: 60px 20px;
             color: #888;
         }
-        
-        .welcome-msg h2 {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-        
+        .welcome-msg h2 { font-size: 48px; margin-bottom: 20px; }
         .lobster-legend {
             display: flex;
             justify-content: center;
@@ -159,7 +178,6 @@
             flex-wrap: wrap;
             margin-top: 30px;
         }
-        
         .lobster-item {
             display: flex;
             align-items: center;
@@ -170,19 +188,17 @@
             font-size: 13px;
         }
         
-        /* 消息气泡 */
+        /* 消息 */
         .message {
             display: flex;
             gap: 15px;
             margin-bottom: 20px;
             animation: fadeIn 0.3s ease;
         }
-        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
         .message-avatar {
             width: 50px;
             height: 50px;
@@ -193,7 +209,6 @@
             font-size: 24px;
             flex-shrink: 0;
         }
-        
         .message-content {
             flex: 1;
             background: rgba(255, 255, 255, 0.05);
@@ -201,59 +216,39 @@
             border-radius: 15px;
             border-left: 3px solid;
         }
-        
         .message-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
         }
+        .message-name { font-weight: 600; font-size: 15px; }
+        .message-time { font-size: 12px; color: #888; }
+        .message-text { font-size: 15px; line-height: 1.6; color: #ddd; }
         
-        .message-name {
-            font-weight: 600;
-            font-size: 15px;
-        }
-        
-        .message-time {
-            font-size: 12px;
-            color: #888;
-        }
-        
-        .message-text {
-            font-size: 15px;
-            line-height: 1.6;
-            color: #ddd;
-        }
-        
-        /* 不同龙虾的颜色 */
+        /* 龙虾颜色 */
         .lobster-value .message-avatar { background: linear-gradient(135deg, #2ed573, #26af61); }
         .lobster-value .message-content { border-left-color: #2ed573; }
         .lobster-value .message-name { color: #2ed573; }
-        
         .lobster-tech .message-avatar { background: linear-gradient(135deg, #1e90ff, #0066cc); }
         .lobster-tech .message-content { border-left-color: #1e90ff; }
         .lobster-tech .message-name { color: #1e90ff; }
-        
         .lobster-meme .message-avatar { background: linear-gradient(135deg, #ffa502, #ff7f00); }
         .lobster-meme .message-content { border-left-color: #ffa502; }
         .lobster-meme .message-name { color: #ffa502; }
-        
         .lobster-conspiracy .message-avatar { background: linear-gradient(135deg, #a55eea, #8854d0); }
         .lobster-conspiracy .message-content { border-left-color: #a55eea; }
         .lobster-conspiracy .message-name { color: #a55eea; }
-        
         .lobster-aggressive .message-avatar { background: linear-gradient(135deg, #ff4757, #ff3838); }
         .lobster-aggressive .message-content { border-left-color: #ff4757; }
         .lobster-aggressive .message-name { color: #ff4757; }
         
-        /* 系统消息 */
         .system-message {
             text-align: center;
             padding: 15px;
             color: #888;
             font-size: 14px;
         }
-        
         .round-divider {
             display: flex;
             align-items: center;
@@ -263,16 +258,14 @@
             color: #666;
             font-size: 13px;
         }
-        
-        .round-divider::before,
-        .round-divider::after {
+        .round-divider::before, .round-divider::after {
             content: '';
             flex: 1;
             height: 1px;
             background: rgba(255, 255, 255, 0.1);
         }
         
-        /* 日志区域 - 固定在底部 */
+        /* 日志 */
         .log-panel {
             background: #0a0a0f;
             border-top: 2px solid #333;
@@ -280,7 +273,6 @@
             display: flex;
             flex-direction: column;
         }
-        
         .log-header {
             display: flex;
             justify-content: space-between;
@@ -289,23 +281,9 @@
             background: rgba(255, 255, 255, 0.05);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
-        .log-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #888;
-        }
-        
-        .log-clear {
-            font-size: 12px;
-            color: #666;
-            cursor: pointer;
-        }
-        
-        .log-clear:hover {
-            color: #fff;
-        }
-        
+        .log-title { font-size: 13px; font-weight: 600; color: #888; }
+        .log-clear { font-size: 12px; color: #666; cursor: pointer; }
+        .log-clear:hover { color: #fff; }
         .log-content {
             flex: 1;
             overflow-y: auto;
@@ -314,25 +292,11 @@
             font-size: 12px;
             line-height: 1.6;
         }
+        .log-line { color: #888; margin-bottom: 3px; }
+        .log-line.error { color: #ff4757; }
+        .log-line.success { color: #2ed573; }
+        .log-line.info { color: #74b9ff; }
         
-        .log-line {
-            color: #888;
-            margin-bottom: 3px;
-        }
-        
-        .log-line.error {
-            color: #ff4757;
-        }
-        
-        .log-line.success {
-            color: #2ed573;
-        }
-        
-        .log-line.info {
-            color: #74b9ff;
-        }
-        
-        /* 加载动画 */
         .loading {
             display: inline-block;
             width: 20px;
@@ -342,99 +306,67 @@
             border-top-color: #e94560;
             animation: spin 1s ease-in-out infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
         
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* 响应式 */
         @media (max-width: 600px) {
-            .header h1 {
-                font-size: 20px;
-            }
-            
-            .control-panel {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .control-group {
-                justify-content: space-between;
-            }
-            
-            select, input[type="number"] {
-                min-width: unset;
-                flex: 1;
-            }
-            
-            .lobster-legend {
-                gap: 10px;
-            }
-            
-            .lobster-item {
-                font-size: 12px;
-                padding: 8px 12px;
-            }
+            .header h1 { font-size: 20px; }
+            .control-panel { flex-direction: column; align-items: stretch; }
+            .control-group { justify-content: space-between; }
+            input[type="text"], input[type="number"] { min-width: unset; flex: 1; }
+            .lobster-legend { gap: 10px; }
+            .lobster-item { font-size: 12px; padding: 8px 12px; }
+            .hot-markets-list { gap: 8px; }
+            .market-tag { font-size: 12px; padding: 6px 12px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🦞 AI龙虾群聊</h1>
-        <p>五只不同风格的AI龙虾针对股票展开激烈辩论</p>
+        <p>五只不同风格的Polymarket投研龙虾</p>
+        <p class="subtitle">📊 基于Polymarket真实市场数据的AI投研辩论</p>
+    </div>
+    
+    <div class="hot-markets-panel">
+        <div class="hot-markets-header">
+            <span class="hot-markets-title">🔥 Polymarket今日热门市场 (点击选择)</span>
+            <div>
+                <span class="hot-markets-meta" id="marketsMeta">加载中...</span>
+                <button class="btn btn-refresh" id="refreshBtn" onclick="refreshMarkets()">🔄 刷新</button>
+            </div>
+        </div>
+        <div class="hot-markets-list" id="hotMarketsList"></div>
     </div>
     
     <div class="control-panel">
-        <div class="control-group" style="flex: 1; max-width: 400px;">
+        <div class="control-group" style="flex: 1; max-width: 500px;">
             <label>💬 话题:</label>
-            <input type="text" id="topicInput" placeholder="输入任何话题，如：AI会取代人类吗？" style="flex: 1; min-width: 250px;">
+            <input type="text" id="topicInput" placeholder="输入Polymarket市场话题或自由话题..." style="flex: 1; min-width: 300px;">
         </div>
-        
         <div class="control-group">
             <label>🔄 轮数:</label>
             <input type="number" id="roundsInput" value="6" min="1" max="10" style="width: 70px;">
         </div>
-        
-        <button class="btn btn-primary" id="startBtn" onclick="startChat()">
-            ▶ 开始撕逼
-        </button>
-        <button class="btn btn-secondary" id="clearBtn" onclick="clearChat()">
-            🗑 清空
-        </button>
+        <button class="btn btn-primary" id="startBtn" onclick="startChat()">▶ 开始撕逼</button>
+        <button class="btn btn-secondary" id="clearBtn" onclick="clearChat()">🗑 清空</button>
     </div>
     
-    <div class="status-bar" id="statusBar">
-        准备就绪 - 输入话题后点击"开始撕逼"
-    </div>
+    <div class="status-bar" id="statusBar">准备就绪 - 选择上方Polymarket市场或输入自定义话题</div>
     
     <div class="chat-container" id="chatContainer">
         <div class="welcome-msg">
             <h2>🦞</h2>
-            <p>欢迎来到AI龙虾群聊！</p>
-            <p>输入任何话题，看五只龙虾如何互撕</p>
-            <p style="font-size: 12px; margin-top: 10px; color: #666;">💡 试试：AI会取代人类吗？ / 比特币是骗局吗？ / 咸甜豆腐脑大战</p>
-            
+            <p>欢迎来到AI龙虾Polymarket投研群聊！</p>
+            <p>点击上方热门市场，或输入任何话题，看五只龙虾如何投研互撕</p>
+            <p style="font-size: 12px; margin-top: 10px; color: #666;">
+                💡 价值龙虾(基本面) | 技术龙虾(数据) | Meme龙虾(情绪) | 阴谋龙虾(信息差) | 激进龙虾(高杠杆)
+            </p>
             <div class="lobster-legend">
-                <div class="lobster-item">
-                    <span>🦞</span>
-                    <span>价值龙虾</span>
-                </div>
-                <div class="lobster-item">
-                    <span>📊</span>
-                    <span>技术龙虾</span>
-                </div>
-                <div class="lobster-item">
-                    <span>😂</span>
-                    <span>Meme龙虾</span>
-                </div>
-                <div class="lobster-item">
-                    <span>🕵️</span>
-                    <span>阴谋龙虾</span>
-                </div>
-                <div class="lobster-item">
-                    <span>🔥</span>
-                    <span>激进龙虾</span>
-                </div>
+                <div class="lobster-item"><span>🦞</span><span>价值龙虾</span></div>
+                <div class="lobster-item"><span>📊</span><span>技术龙虾</span></div>
+                <div class="lobster-item"><span>😂</span><span>Meme龙虾</span></div>
+                <div class="lobster-item"><span>🕵️</span><span>阴谋龙虾</span></div>
+                <div class="lobster-item"><span>🔥</span><span>激进龙虾</span></div>
             </div>
         </div>
     </div>
@@ -450,11 +382,9 @@
     </div>
 
     <script>
-        let isRunning = false;
-        let pollInterval = null;
-        let logInterval = null;
+        let isRunning = false, pollInterval = null, logInterval = null;
+        let hotMarkets = [], selectedMarket = null;
         
-        // 龙虾配置
         const lobsterConfig = {
             '价值龙虾': { class: 'lobster-value', emoji: '🦞' },
             '技术龙虾': { class: 'lobster-tech', emoji: '📊' },
@@ -463,53 +393,108 @@
             '激进龙虾': { class: 'lobster-aggressive', emoji: '🔥' }
         };
         
-        // 页面加载时启动日志轮询
         window.onload = function() {
+            loadHotMarkets();
             startLogPolling();
-            addLog('系统就绪，请输入话题开始撕逼', 'info');
+            addLog('系统就绪，请选择Polymarket市场或输入话题', 'info');
             document.getElementById('topicInput').focus();
         };
         
-        // 开始群聊
+        async function loadHotMarkets() {
+            try {
+                const response = await fetch('/api/hot-markets');
+                const data = await response.json();
+                hotMarkets = data.markets || [];
+                renderHotMarkets(hotMarkets, data.data_age);
+                addLog(`加载了 ${hotMarkets.length} 个Polymarket热门市场`, 'success');
+            } catch (error) {
+                addLog('加载热门市场失败: ' + error.message, 'error');
+                document.getElementById('hotMarketsList').innerHTML = '<span style="color:#888">暂无数据，请先刷新</span>';
+            }
+        }
+        
+        function renderHotMarkets(markets, dataAge) {
+            const container = document.getElementById('hotMarketsList');
+            const meta = document.getElementById('marketsMeta');
+            if (markets.length === 0) {
+                container.innerHTML = '<span style="color:#888">暂无数据，点击刷新获取</span>';
+                meta.textContent = '无数据';
+                return;
+            }
+            meta.textContent = `${markets.length}个市场 · ${dataAge}`;
+            container.innerHTML = markets.map((m, i) => `
+                <div class="market-tag" onclick="selectMarket(${i})" id="market-${i}">
+                    ${m.question.substring(0, 30)}${m.question.length > 30 ? '...' : ''}
+                    <span class="odds">${m.outcomes}</span>
+                </div>
+            `).join('');
+        }
+        
+        function selectMarket(index) {
+            if (isRunning) return;
+            document.querySelectorAll('.market-tag').forEach(el => el.classList.remove('active'));
+            document.getElementById(`market-${index}`).classList.add('active');
+            selectedMarket = hotMarkets[index];
+            document.getElementById('topicInput').value = selectedMarket.question;
+            addLog(`已选择市场: ${selectedMarket.question.substring(0, 40)}...`, 'info');
+        }
+        
+        async function refreshMarkets() {
+            const btn = document.getElementById('refreshBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+            try {
+                const response = await fetch('/api/update-markets', { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    addLog('市场数据已更新', 'success');
+                    await loadHotMarkets();
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                addLog('刷新失败: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔄 刷新';
+            }
+        }
+        
         async function startChat() {
             const topicInput = document.getElementById('topicInput');
             const topic = topicInput.value.trim();
-            
             if (!topic) {
                 addLog('请输入话题', 'error');
                 topicInput.focus();
                 return;
             }
-            
             const rounds = parseInt(document.getElementById('roundsInput').value);
-            
             isRunning = true;
             updateUIState();
             
-            // 清空聊天区
             const container = document.getElementById('chatContainer');
             container.innerHTML = `
                 <div class="system-message">
-                    📢 群公告：今天撕的话题是【${topic}】！各位龙虾，发表你们的看法！
+                    📢 群公告：今天撕的话题是【${topic}】！各位龙虾投研员，发表你们的分析！
                 </div>
             `;
             
             try {
+                const requestData = { topic, rounds };
+                if (selectedMarket && selectedMarket.question === topic) {
+                    requestData.market_data = selectedMarket;
+                }
                 const response = await fetch('/api/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topic, rounds })
+                    body: JSON.stringify(requestData)
                 });
-                
                 const data = await response.json();
                 if (data.status === 'error') {
                     throw new Error(data.error);
                 }
-                addLog(`群聊开始: ${topic}, ${rounds}轮`, 'success');
-                
-                // 开始轮询状态
+                addLog(`群聊开始: ${topic.substring(0, 40)}..., ${rounds}轮`, 'success');
                 startPolling();
-                
             } catch (error) {
                 addLog('启动失败: ' + error.message, 'error');
                 isRunning = false;
@@ -517,17 +502,13 @@
             }
         }
         
-        // 轮询状态
         function startPolling() {
             pollInterval = setInterval(async () => {
                 try {
                     const response = await fetch('/api/status');
                     const data = await response.json();
-                    
                     updateStatus(data);
-                    
                     if (!data.is_running && data.messages.length > 0) {
-                        // 结束了
                         isRunning = false;
                         updateUIState();
                         clearInterval(pollInterval);
@@ -539,10 +520,8 @@
             }, 1000);
         }
         
-        // 更新状态显示
         function updateStatus(data) {
             const statusBar = document.getElementById('statusBar');
-            
             if (data.error) {
                 statusBar.textContent = `❌ 错误: ${data.error}`;
                 statusBar.className = 'status-bar error';
@@ -550,47 +529,33 @@
                 updateUIState();
                 return;
             }
-            
             if (data.is_running) {
-                statusBar.textContent = `🔄 正在撕逼中... ${data.topic} | 第 ${data.current_round}/${data.total_rounds} 轮`;
+                statusBar.textContent = `🔄 正在撕逼中... 第 ${data.current_round}/${data.total_rounds} 轮`;
                 statusBar.className = 'status-bar running';
             } else if (data.messages.length > 0) {
-                statusBar.textContent = `✅ 撕逼结束 - ${data.topic}`;
+                statusBar.textContent = `✅ 撕逼结束`;
                 statusBar.className = 'status-bar';
             }
-            
-            // 更新消息
             if (data.messages && data.messages.length > 0) {
                 renderMessages(data.messages);
             }
         }
         
-        // 渲染消息
         function renderMessages(messages) {
             const container = document.getElementById('chatContainer');
-            
-            // 保留系统公告
             const systemMsg = container.querySelector('.system-message');
             container.innerHTML = '';
             if (systemMsg) container.appendChild(systemMsg);
             
             let lastRound = 0;
-            
             messages.forEach((msg, index) => {
-                // 检测轮次变化（每5条消息一轮）
                 const currentRound = Math.floor(index / 5) + 1;
                 if (currentRound > lastRound && index > 0) {
-                    container.innerHTML += `
-                        <div class="round-divider">
-                            第 ${currentRound} 轮
-                        </div>
-                    `;
+                    container.innerHTML += `<div class="round-divider">第 ${currentRound} 轮</div>`;
                     lastRound = currentRound;
                 }
-                
                 const config = lobsterConfig[msg.name] || { class: '', emoji: '🦞' };
-                
-                const msgHtml = `
+                container.innerHTML += `
                     <div class="message ${config.class}">
                         <div class="message-avatar">${config.emoji}</div>
                         <div class="message-content">
@@ -602,79 +567,28 @@
                         </div>
                     </div>
                 `;
-                
-                container.innerHTML += msgHtml;
             });
-            
-            // 滚动到底部
             container.scrollTop = container.scrollHeight;
         }
         
-        // 清空聊天
         async function clearChat() {
             if (isRunning) {
-                if (!confirm('群聊正在进行中，确定要清空吗？')) {
-                    return;
-                }
+                if (!confirm('群聊正在进行中，确定要清空吗？')) return;
                 clearInterval(pollInterval);
             }
-            
             try {
                 await fetch('/api/clear', { method: 'POST' });
-                
-                document.getElementById('chatContainer').innerHTML = `
-                    <div class="welcome-msg">
-                        <h2>🦞</h2>
-                        <p>欢迎来到AI龙虾群聊！</p>
-                        <p>输入任何话题，看五只龙虾如何互撕</p>
-                        <p style="font-size: 12px; margin-top: 10px; color: #666;">💡 试试：AI会取代人类吗？ / 比特币是骗局吗？ / 咸甜豆腐脑大战</p>
-                        
-                        <div class="lobster-legend">
-                            <div class="lobster-item">
-                                <span>🦞</span>
-                                <span>价值龙虾</span>
-                            </div>
-                            <div class="lobster-item">
-                                <span>📊</span>
-                                <span>技术龙虾</span>
-                            </div>
-                            <div class="lobster-item">
-                                <span>😂</span>
-                                <span>Meme龙虾</span>
-                            </div>
-                            <div class="lobster-item">
-                                <span>🕵️</span>
-                                <span>阴谋龙虾</span>
-                            </div>
-                            <div class="lobster-item">
-                                <span>🔥</span>
-                                <span>激进龙虾</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                document.getElementById('statusBar').textContent = '准备就绪 - 输入话题后点击"开始撕逼"';
-                document.getElementById('statusBar').className = 'status-bar';
-                document.getElementById('topicInput').value = '';
-                
-                isRunning = false;
-                updateUIState();
-                
-                addLog('聊天记录已清空', 'info');
-                
+                location.reload();
             } catch (error) {
                 addLog('清空失败: ' + error.message, 'error');
             }
         }
         
-        // 轮询日志
         function startLogPolling() {
             logInterval = setInterval(async () => {
                 try {
                     const response = await fetch('/api/logs');
                     const data = await response.json();
-                    
                     updateLogDisplay(data.logs);
                 } catch (error) {
                     console.error('日志轮询错误:', error);
@@ -682,7 +596,6 @@
             }, 2000);
         }
         
-        // 更新日志显示
         function updateLogDisplay(logs) {
             const logContent = document.getElementById('logContent');
             logContent.innerHTML = logs.map(line => {
@@ -692,34 +605,26 @@
                 else if (line.includes('开始') || line.includes('等待')) className += ' info';
                 return `<div class="${className}">${escapeHtml(line)}</div>`;
             }).join('');
-            
-            // 滚动到底部
             logContent.scrollTop = logContent.scrollHeight;
         }
         
-        // 添加日志
         function addLog(message, type = 'info') {
             const logContent = document.getElementById('logContent');
             const timestamp = new Date().toLocaleTimeString();
-            const className = type === 'error' ? 'log-line error' : 
-                             type === 'success' ? 'log-line success' : 'log-line info';
-            
+            const className = type === 'error' ? 'log-line error' : type === 'success' ? 'log-line success' : 'log-line info';
             logContent.innerHTML += `<div class="${className}">[${timestamp}] ${escapeHtml(message)}</div>`;
             logContent.scrollTop = logContent.scrollHeight;
         }
         
-        // 清空日志
         function clearLogs() {
             document.getElementById('logContent').innerHTML = '<div class="log-line info">日志已清空...</div>';
         }
         
-        // 更新UI状态
         function updateUIState() {
             const startBtn = document.getElementById('startBtn');
             const clearBtn = document.getElementById('clearBtn');
             const topicInput = document.getElementById('topicInput');
             const roundsInput = document.getElementById('roundsInput');
-            
             if (isRunning) {
                 startBtn.disabled = true;
                 startBtn.innerHTML = '<span class="loading"></span> 撕逼中...';
@@ -735,18 +640,14 @@
             }
         }
         
-        // HTML转义
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
         
-        // 回车键提交
         document.getElementById('topicInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !isRunning) {
-                startChat();
-            }
+            if (e.key === 'Enter' && !isRunning) startChat();
         });
     </script>
 </body>

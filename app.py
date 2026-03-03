@@ -3,13 +3,14 @@
 AI龙虾群聊 - Web版
 Flask Web服务器，端口3000
 支持多API: xAI (Grok) / Deepseek
+支持Polymarket每日热门市场推荐
 """
 
 import os
 import sys
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 
@@ -31,6 +32,9 @@ else:
     API_KEY = None
     BASE_URL = None
     MODEL = None
+
+# Polymarket数据路径
+HOT_MARKETS_FILE = 'data/hot_markets.json'
 
 # 配置日志 - 同时输出到文件和内存
 class LogBuffer:
@@ -68,6 +72,36 @@ chat_state = {
     'error': None
 }
 
+def get_hot_markets():
+    """获取热门市场数据"""
+    try:
+        with open(HOT_MARKETS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        markets = data.get('markets', [])
+        updated_at = data.get('updated_at', '')
+        
+        # 格式化市场数据
+        formatted = []
+        for m in markets:
+            outcomes_str = ' / '.join([
+                f"{o['label']}({o['probability']:.0f}%)"
+                for o in m.get('outcomes', [])[:2]
+            ])
+            formatted.append({
+                'id': m.get('id', ''),
+                'question': m.get('question', ''),
+                'outcomes': outcomes_str,
+                'volume': m.get('volume', 0),
+                'url': m.get('url', ''),
+                'updated_at': updated_at
+            })
+        
+        return formatted
+    except Exception as e:
+        print(f"读取市场数据失败: {e}")
+        return []
+
 @app.route('/')
 def index():
     """主页"""
@@ -82,15 +116,29 @@ def get_config():
         'api_key_configured': bool(API_KEY)
     })
 
-@app.route('/api/topics')
-def get_topics():
-    """获取可选话题列表"""
-    from lobsters import HOT_TOPICS
+@app.route('/api/hot-markets')
+def get_hot_markets_api():
+    """获取Polymarket热门市场"""
+    markets = get_hot_markets()
+    
+    # 检查数据是否过期
+    data_age = "未知"
+    try:
+        with open(HOT_MARKETS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            updated_at = datetime.fromisoformat(data.get('updated_at', '2000-01-01'))
+            age = datetime.now() - updated_at
+            if age < timedelta(hours=1):
+                data_age = f"{age.seconds // 60}分钟前"
+            else:
+                data_age = f"{age.seconds // 3600}小时前"
+    except:
+        pass
+    
     return jsonify({
-        'topics': [
-            {'id': i, 'text': t}
-            for i, t in enumerate(HOT_TOPICS)
-        ]
+        'markets': markets,
+        'count': len(markets),
+        'data_age': data_age
     })
 
 @app.route('/api/start', methods=['POST'])
@@ -107,6 +155,7 @@ def start_chat():
     data = request.json
     topic = data.get('topic', 'AI人工智能')
     rounds = data.get('rounds', 6)
+    market_data = data.get('market_data', None)  # 可选的市场数据
     
     log_buffer.clear()
     log_buffer.write(f"使用 {API_PROVIDER.upper()} API")
@@ -123,7 +172,7 @@ def start_chat():
     
     # 在后台线程运行聊天
     import threading
-    thread = threading.Thread(target=run_chat_thread, args=(topic, rounds))
+    thread = threading.Thread(target=run_chat_thread, args=(topic, rounds, market_data))
     thread.daemon = True
     thread.start()
     
@@ -154,7 +203,20 @@ def clear_chat():
     log_buffer.clear()
     return jsonify({'status': 'cleared'})
 
-def run_chat_thread(topic, rounds):
+@app.route('/api/update-markets', methods=['POST'])
+def update_markets():
+    """手动触发更新市场数据"""
+    try:
+        from polymarket import update_hot_markets
+        success = update_hot_markets()
+        if success:
+            return jsonify({'status': 'success', 'message': '市场数据已更新'})
+        else:
+            return jsonify({'status': 'error', 'message': '更新失败'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def run_chat_thread(topic, rounds, market_data=None):
     """在后台线程运行聊天"""
     global chat_state
     
@@ -171,8 +233,20 @@ def run_chat_thread(topic, rounds):
         chat.round_callback = update_round_callback
         chat.log_callback = log_callback
         
+        # 如果有市场数据，添加到话题中
+        if market_data:
+            full_topic = f"""{topic}
+
+【Polymarket市场数据】
+问题: {market_data.get('question', '')}
+当前赔率: {market_data.get('outcomes', '')}
+交易量: ${market_data.get('volume', 0):,.0f}
+"""
+        else:
+            full_topic = topic
+        
         # 运行辩论
-        chat.run_debate(topic, rounds=rounds)
+        chat.run_debate(full_topic, rounds=rounds)
         
         chat_state['is_running'] = False
         log_buffer.write("群聊结束！")

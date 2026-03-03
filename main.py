@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-AI龙虾群聊 - 核心脚本
-支持多API: xAI (Grok) / Deepseek
+AI龙虾群聊 - 实盘投研版
+五只龙虾基于前一日真实股价、新闻、数据互撕
 """
 
 import os
@@ -11,12 +11,12 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from lobsters import LOBSTERS, ORDER, HOT_TOPICS, ESCALATION_TRIGGERS
+from lobsters import LOBSTERS, ORDER, ESCALATION_TRIGGERS
 
 # 加载环境变量
 load_dotenv()
 
-# 配置
+# API配置
 API_PROVIDER = os.getenv("API_PROVIDER", "deepseek").lower()
 
 if API_PROVIDER == "xai":
@@ -26,20 +26,19 @@ if API_PROVIDER == "xai":
 elif API_PROVIDER == "deepseek":
     API_KEY = os.getenv("DEEPSEEK_API_KEY")
     BASE_URL = "https://api.deepseek.com"
-    MODEL = "deepseek-chat"  # 或 "deepseek-reasoner"
+    MODEL = "deepseek-chat"
 else:
-    print(f"❌ 不支持的API提供商: {API_PROVIDER}")
-    sys.exit(1)
+    API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    BASE_URL = "https://api.deepseek.com"
+    MODEL = "deepseek-chat"
 
 if not API_KEY:
-    print(f"❌ 错误：请设置 {API_PROVIDER.upper()}_API_KEY 环境变量")
-    print(f"   方式1: export {API_PROVIDER.upper()}_API_KEY=你的key")
-    print(f"   方式2: 创建.env文件，写入 {API_PROVIDER.upper()}_API_KEY=你的key")
+    print(f"❌ 错误：请设置 API Key")
     sys.exit(1)
 
-ROUNDS = 6  # 撕逼轮数
-TEMPERATURE = 0.9  # 创造力高一点更幽默
-MAX_TOKENS = 200
+ROUNDS = 6
+TEMPERATURE = 0.9
+MAX_TOKENS = 150
 
 
 class LobsterChat:
@@ -48,52 +47,49 @@ class LobsterChat:
     def __init__(self):
         self.chats = {}
         self.history = []
-        self.escalation_level = 0  # 撕逼升级等级
-        # Web回调函数
+        self.escalation_level = 0
         self.message_callback = None
         self.round_callback = None
         self.log_callback = None
+        self.market_data = None  # 存储市场数据
         self.init_client()
         self.init_lobsters()
     
     def init_client(self):
         """初始化API客户端"""
-        self.client = OpenAI(
-            api_key=API_KEY,
-            base_url=BASE_URL
-        )
-        print(f"✅ 使用 {API_PROVIDER.upper()} API 模式")
-        print(f"   模型: {MODEL}")
+        self.client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+        print(f"✅ 使用 {API_PROVIDER.upper()} API")
     
     def init_lobsters(self):
         """为每只龙虾创建独立的chat会话"""
-        base_instruction = """你是AI龙虾群聊的一员，专业辩手。
+        # 基础指令 - 强制格式
+        base_instruction = """
+【强制输出格式 - 必须遵循】：
+1. 先引用1个真实数据/事实（股价、财报、指标、新闻等）
+2. 再融入你的领域认知（护城河/MACD/FOMO/内幕/IV等）
+3. 最后@上一位龙虾，引用其一句话，脏话+表情猛怼
+4. 总长度控制在40-60字，1-2句话
 
-【群聊规则】：
-1. 每次发言必须@上一位发言的龙虾
-2. 必须引用上一位的一句话进行反驳
-3. 必须带人格攻击或嘲讽（但保持幽默）
-4. 每次只说1-2句话，简短有力
-5. 可以带emoji增加娱乐性
+【示例】：
+"Q3自由现金流暴跌28%，你DCF算个屁价值！@技术龙虾 你那MACD能当现金流用？书呆子🖕"
 
-【撕逼风格】：
-- 你的风格已在system prompt中定义
-- 语气要激烈但有趣
-- 可以适当带网络用语、梗
-- 目的是制造节目效果，观众爱看互撕
-- 针对话题发表你的观点，用你的风格猛烈输出
-"""
+【禁止】：
+- 长篇大论解释概念
+- 没有脏话的温和发言
+- 不@人不引用
+- 不带真实数据空对空"""
         
         for name in ORDER:
             personality = LOBSTERS[name]
             full_prompt = f"{personality}\n\n{base_instruction}"
             
-            # OpenAI兼容模式存储messages列表
-            self.chats[name] = [
-                {"role": "system", "content": full_prompt}
-            ]
+            self.chats[name] = [{"role": "system", "content": full_prompt}]
         
         print(f"✅ 已初始化 {len(ORDER)} 只龙虾")
+    
+    def set_market_data(self, data):
+        """设置市场数据"""
+        self.market_data = data
     
     def check_escalation(self, text):
         """检查是否需要升级撕逼强度"""
@@ -105,32 +101,55 @@ class LobsterChat:
     def get_escalation_prompt(self):
         """根据升级等级返回额外的情绪提示"""
         prompts = [
-            "",  # 等级0：正常
-            "【情绪升级】语气更激烈一点，带点脏话但不要太过分。",
-            "【情绪爆发】可以放飞自我了，脏话+夸张表情+大喊大叫风格。",
-            "【终极撕逼】彻底疯狂！互相人身攻击，节目效果拉满！"
+            "",
+            "【情绪升级】语气更冲，多带1个脏话",
+            "【情绪爆发】彻底放飞，连续2个脏话+夸张比喻",
+            "【终极撕逼】人身攻击模式，怎么难听怎么骂"
         ]
-        if self.escalation_level < len(prompts):
-            return prompts[self.escalation_level]
-        return prompts[-1]
+        return prompts[min(self.escalation_level, 3)]
     
-    def generate_response(self, name, context):
+    def get_market_context(self, topic):
+        """获取市场数据上下文"""
+        context = f"【讨论话题】：{topic}\n\n"
+        
+        if self.market_data:
+            context += "【Polymarket/市场数据】：\n"
+            context += f"- 问题：{self.market_data.get('question', 'N/A')}\n"
+            context += f"- 当前赔率：{self.market_data.get('outcomes', 'N/A')}\n"
+            context += f"- 交易量：${self.market_data.get('volume', 0):,.0f}\n\n"
+        
+        # 这里可以扩展接入真实股票API
+        context += "【要求】：\n"
+        context += "1. 引用上述真实数据中的一个数字\n"
+        context += "2. 结合你的专业领域（价值/技术/Meme/阴谋/激进）\n"
+        context += "3. @上一位龙虾，引用一句话，脏话+表情猛怼\n"
+        context += "4. 控制在1-2句话，40-60字\n"
+        
+        return context
+    
+    def generate_response(self, name, context, topic):
         """生成单只龙虾的回复"""
         escalation = self.get_escalation_prompt()
-        prompt = f"""最近几条群聊记录：
+        market_context = self.get_market_context(topic)
+        
+        prompt = f"""{market_context}
+
+【最近群聊记录】：
 {context}
 
-现在轮到【{name}】发言。
+【现在轮到{name}发言】
 {escalation}
 
-必须：
-1. @上一位发言的龙虾
-2. 引用TA一句话进行反驳/嘲讽
-3. 保持你的人格风格
-4. 简短有力，1-2句话"""
+必须做到：
+1. 引用真实数据（赔率/交易量/价格等）
+2. 展现你的专业认知
+3. @上一位发言者，引用其一句原话
+4. 脏话+表情嘲讽
+5. 1-2句话，40-60字
+
+直接输出你的发言："""
         
         try:
-            # 构建消息
             messages = self.chats[name] + [{"role": "user", "content": prompt}]
             
             response = self.client.chat.completions.create(
@@ -149,30 +168,26 @@ class LobsterChat:
             return content
             
         except Exception as e:
-            error_msg = str(e)
-            print(f"❌ API调用错误: {error_msg}")
-            return f"【{name}掉线了】{error_msg[:50]}..."
+            return f"【{name}掉线】{str(e)[:30]}..."
     
-    def run_debate(self, topic="AI人工智能", rounds=None):
-        """运行一轮撕逼
-        
-        Args:
-            topic: 辩论话题，可以是任何主题
-            rounds: 轮数，默认6轮
-        """
-        # 使用传入的轮数或默认轮数
+    def run_debate(self, topic="TSLA", rounds=None):
+        """运行一轮撕逼"""
         total_rounds = rounds if rounds else ROUNDS
         
         # 初始化群聊
-        opening = f"📢 群公告：今天撕的话题是【{topic}】！各位龙虾，发表你们的看法！"
+        if self.market_data:
+            market_info = f"{self.market_data.get('question', topic)} | {self.market_data.get('outcomes', '')}"
+        else:
+            market_info = topic
+        
+        opening = f"📢 群公告：今日实盘【{market_info}】！各投研员发表观点，必须带真实数据！"
         self.history = [opening]
         
-        # Web回调
         if self.log_callback:
-            self.log_callback(f"开始撕逼话题: {topic}")
+            self.log_callback(f"开始实盘投研: {topic}")
         
         print("\n" + "="*60)
-        print("🦞 AI龙虾群聊 - 话题撕逼大会")
+        print("🦞 AI龙虾群聊 - 实盘投研")
         print("="*60)
         print(f"\n{opening}\n")
         
@@ -184,47 +199,38 @@ class LobsterChat:
             "激进龙虾": "🔥"
         }
         
-        # 进行多轮发言
         for round_num in range(1, total_rounds + 1):
             print(f"\n{'─'*40}")
-            print(f"🔄 第 {round_num}/{total_rounds} 轮撕逼")
+            print(f"🔄 第 {round_num}/{total_rounds} 轮")
             print('─'*40)
             
-            # 轮次回调
             if self.round_callback:
                 self.round_callback(round_num, total_rounds)
             
             for name in ORDER:
-                # 构建上下文（最近3条）
                 context = "\n".join(self.history[-4:]) if len(self.history) > 4 else "\n".join(self.history)
+                response = self.generate_response(name, context, topic)
                 
-                # 生成回复
-                response = self.generate_response(name, context)
-                
-                # 格式化输出
                 emoji = emoji_map.get(name, "🦞")
                 msg = f"{emoji} **{name}**：{response}"
                 
                 print(f"\n{msg}")
                 self.history.append(msg)
                 
-                # 消息回调（用于Web实时显示）
                 if self.message_callback:
                     self.message_callback(name, response, emoji)
                 
-                # 检查是否需要升级
                 if self.check_escalation(response):
                     self.escalation_level = min(self.escalation_level + 1, 3)
                 
-                # 小延迟增加真实感
                 time.sleep(0.3)
         
         print("\n" + "="*60)
-        print("🏁 撕逼结束！感谢收看AI龙虾群聊！")
+        print("🏁 投研结束！")
         print("="*60)
         
         if self.log_callback:
-            self.log_callback("撕逼结束！")
+            self.log_callback("投研结束！")
         
         return self.history
     
@@ -235,46 +241,28 @@ class LobsterChat:
             filename = f"lobster_chat_{timestamp}.txt"
         
         with open(filename, "w", encoding="utf-8") as f:
-            f.write("AI龙虾群聊 - 话题撕逼记录\n")
+            f.write("AI龙虾群聊 - 实盘投研记录\n")
             f.write(f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("="*60 + "\n\n")
             for line in self.history:
                 f.write(line + "\n\n")
         
-        print(f"\n💾 对话已保存到：{filename}")
+        print(f"\n💾 已保存：{filename}")
 
 
 def main():
     """主函数"""
-    print(f"\n🦞 欢迎使用 AI龙虾群聊系统！[{API_PROVIDER.upper()} API]\n")
+    print(f"\n🦞 AI龙虾实盘投研系统\n")
     
-    # 选择话题
-    print("可选的热门话题（撕逼效果最佳）：")
-    for i, topic in enumerate(HOT_TOPICS, 1):
-        print(f"  {i}. {topic}")
-    print("  0. 自定义输入")
+    topic = input("输入话题/股票（默认TSLA）: ").strip() or "TSLA"
     
-    try:
-        choice = input("\n请选择话题编号 (默认1): ").strip()
-        if choice == "0":
-            topic = input("输入自定义话题: ").strip()
-        elif choice and choice.isdigit() and 1 <= int(choice) <= len(HOT_TOPICS):
-            topic = HOT_TOPICS[int(choice)-1].split(" - ")[0]
-        else:
-            topic = HOT_TOPICS[0].split(" - ")[0]
-    except (ValueError, IndexError):
-        topic = HOT_TOPICS[0].split(" - ")[0]
-    
-    # 创建群聊并运行
     chat = LobsterChat()
     chat.run_debate(topic)
     
-    # 保存记录
-    save = input("\n是否保存对话记录？(y/n): ").strip().lower()
-    if save in ('y', 'yes', '是'):
+    if input("\n保存记录？(y/n): ").strip().lower() in ('y', 'yes'):
         chat.save_transcript()
     
-    print("\n🎬 本次撕逼大会结束！再见！\n")
+    print("\n🎬 结束！\n")
 
 
 if __name__ == "__main__":
