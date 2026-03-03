@@ -5,12 +5,13 @@
 ![Web UI Preview](https://img.shields.io/badge/Web-UI-ff4757?style=for-the-badge)
 ![Port 3000](https://img.shields.io/badge/Port-3000-2ed573?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge)
+![Deepseek](https://img.shields.io/badge/API-Deepseek-4f46e5?style=for-the-badge)
 
 ## 🎯 核心看点
 
 - **AI互撕/互怼** - 冲突制造笑点和高能时刻
 - **不同人格碰撞** - 价值派 vs 技术派 vs Meme派 vs 阴谋论派 vs 激进派
-- **任何话题都能撕** - 股票、科技、社会热点、 lifestyle
+- **任何话题都能撕** - 股票、科技、社会热点、lifestyle
 - **娱乐性 > 专业性** - 观众看热闹为主
 - **短视频剪辑潜力极高** - 金句、名场面频出
 - **低成本可复制** - 换话题继续产出
@@ -25,15 +26,26 @@ pip install -r requirements.txt
 
 ### 2. 配置API Key
 
-**方式1 - 环境变量（临时）：**
-```bash
-export XAI_API_KEY="你的xAI_API_Key"
-```
+**Deepseek API（推荐，性价比高）：**
 
-**方式2 - .env文件（推荐）：**
+1. 前往 [Deepseek开放平台](https://platform.deepseek.com/) 注册并创建API Key
+2. 配置环境变量：
+
 ```bash
+# 方式1 - 环境变量（临时）
+export DEEPSEEK_API_KEY="你的Deepseek_API_Key"
+export API_PROVIDER="deepseek"
+
+# 方式2 - .env文件（推荐）
 cp .env.example .env
 # 编辑.env文件，填入你的API Key
+```
+
+**可选：xAI (Grok) API**
+
+```bash
+export XAI_API_KEY="你的xAI_API_Key"
+export API_PROVIDER="xai"
 ```
 
 ### 3. 运行方式（二选一）
@@ -61,13 +73,39 @@ python main.py
 
 ### 热门话题池
 
-| 话题类型 | 示例 |
-|---------|------|
-| 投资理财 | TSLA股票、比特币、房地产 |
-| 科技趋势 | AI人工智能、元宇宙、电动车 |
-| 社会现象 | 996工作制、躺平文化、内卷 |
-| 生活方式 | 追星、游戏、素食主义 |
+| 类型 | 话题 |
+|------|------|
+| 💰 投资 | TSLA股票、比特币、房地产 |
+| 🤖 科技 | AI人工智能、元宇宙、电动车 |
+| 💼 职场 | 996工作制、躺平文化、内卷 |
+| 🎭 生活 | 追星、游戏、素食主义 |
 | 自定义 | 输入任何话题！ |
+
+## 🤖 API配置
+
+### Deepseek（默认，推荐）
+
+- **价格**: 输入¥2/百万token，输出¥8/百万token
+- **模型**: `deepseek-chat` (V3) 或 `deepseek-reasoner` (R1)
+- **特点**: 中文效果好，价格便宜，响应快
+- **注册**: https://platform.deepseek.com/
+
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+export API_PROVIDER="deepseek"
+```
+
+### xAI (Grok)
+
+- **价格**: 按需付费
+- **模型**: `grok-2-latest`
+- **特点**: 英文效果好，实时信息
+- **注册**: https://console.x.ai
+
+```bash
+export XAI_API_KEY="..."
+export API_PROVIDER="xai"
+```
 
 ## 🦞 五只龙虾人格
 
@@ -87,12 +125,21 @@ lobster-ai/
 ├── main.py             # 💻 命令行版本
 ├── lobsters.py         # 五只龙虾人格定义 + 话题池
 ├── requirements.txt    # 依赖列表
-├── .env.example        # 环境变量示例
+├── .env.example        # 环境变量示例 (Deepseek + xAI)
 ├── .gitignore          # Git忽略规则
 ├── templates/
 │   └── index.html      # Web前端页面
 └── README.md           # 本文件
 ```
+
+## 💰 成本估算
+
+使用 **Deepseek API**：
+- 每次撕逼（6轮 × 5只龙虾 = 30次API调用）
+- 预估消耗：约 3000-5000 tokens
+- 成本：约 ¥0.02-0.05/次
+
+**超级便宜！放心撕！**
 
 ## 🎬 使用场景
 
@@ -110,6 +157,12 @@ lobster-ai/
 
 ### 修改龙虾人格
 编辑 `lobsters.py` 中的 `LOBSTERS` 字典
+
+### 切换API
+修改 `.env` 文件中的 `API_PROVIDER`：
+```bash
+API_PROVIDER=deepseek  # 或 xai
+```
 
 ### 添加语音输出 (Web版)
 在 `app.py` 中集成gTTS，给每只龙虾添加语音播报
@@ -146,8 +199,10 @@ lobster-ai/
 
 ## ⚠️ 注意事项
 
-1. 需要 xAI (Grok) 的 API Key - [获取地址](https://console.x.ai)
-2. API调用会产生费用，请留意用量
+1. 需要 Deepseek 或 xAI 的 API Key
+   - Deepseek: https://platform.deepseek.com/
+   - xAI: https://console.x.ai
+2. API调用会产生费用，Deepseek价格很便宜
 3. 生成的内容仅供娱乐，**不构成任何建议**
 4. 撕逼内容可能包含讽刺和夸张表达
 

@@ -2,7 +2,7 @@
 """
 AI龙虾群聊 - Web版
 Flask Web服务器，端口3000
-支持自定义话题输入
+支持多API: xAI (Grok) / Deepseek
 """
 
 import os
@@ -15,6 +15,22 @@ from dotenv import load_dotenv
 
 # 加载环境变量
 load_dotenv()
+
+# API配置
+API_PROVIDER = os.getenv("API_PROVIDER", "deepseek").lower()
+
+if API_PROVIDER == "xai":
+    API_KEY = os.getenv("XAI_API_KEY")
+    BASE_URL = "https://api.x.ai/v1"
+    MODEL = "grok-2-latest"
+elif API_PROVIDER == "deepseek":
+    API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    BASE_URL = "https://api.deepseek.com"
+    MODEL = "deepseek-chat"
+else:
+    API_KEY = None
+    BASE_URL = None
+    MODEL = None
 
 # 配置日志 - 同时输出到文件和内存
 class LogBuffer:
@@ -55,7 +71,16 @@ chat_state = {
 @app.route('/')
 def index():
     """主页"""
-    return render_template('index.html')
+    return render_template('index.html', api_provider=API_PROVIDER.upper())
+
+@app.route('/api/config')
+def get_config():
+    """获取API配置"""
+    return jsonify({
+        'api_provider': API_PROVIDER,
+        'model': MODEL,
+        'api_key_configured': bool(API_KEY)
+    })
 
 @app.route('/api/topics')
 def get_topics():
@@ -73,11 +98,18 @@ def start_chat():
     """开始新的群聊"""
     global chat_state
     
+    # 检查API Key
+    if not API_KEY:
+        error_msg = f"未配置 {API_PROVIDER.upper()}_API_KEY"
+        log_buffer.write(f"错误: {error_msg}")
+        return jsonify({'status': 'error', 'error': error_msg}), 400
+    
     data = request.json
     topic = data.get('topic', 'AI人工智能')
     rounds = data.get('rounds', 6)
     
     log_buffer.clear()
+    log_buffer.write(f"使用 {API_PROVIDER.upper()} API")
     log_buffer.write(f"开始新的群聊: {topic}, {rounds}轮")
     
     chat_state = {
@@ -174,6 +206,8 @@ def log_callback(msg):
 
 if __name__ == '__main__':
     print("🦞 AI龙虾群聊 Web服务器启动中...")
+    print(f"API提供商: {API_PROVIDER.upper()}")
+    print(f"模型: {MODEL}")
     print(f"访问地址: http://localhost:3000")
     print("按 Ctrl+C 停止服务器\n")
     

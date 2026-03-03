@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI龙虾群聊 - 核心脚本
-五只不同风格的AI龙虾针对任何话题进行激烈辩论
+支持多API: xAI (Grok) / Deepseek
 """
 
 import os
@@ -9,15 +9,7 @@ import sys
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-
-# 尝试导入xai-sdk，如果没有则用openai兼容模式
-try:
-    from xai_sdk import Client
-    from xai_sdk.chat import system, user
-    USE_XAI_SDK = True
-except ImportError:
-    from openai import OpenAI
-    USE_XAI_SDK = False
+from openai import OpenAI
 
 from lobsters import LOBSTERS, ORDER, HOT_TOPICS, ESCALATION_TRIGGERS
 
@@ -25,16 +17,29 @@ from lobsters import LOBSTERS, ORDER, HOT_TOPICS, ESCALATION_TRIGGERS
 load_dotenv()
 
 # 配置
-API_KEY = os.getenv("XAI_API_KEY")
-if not API_KEY:
-    print("❌ 错误：请设置 XAI_API_KEY 环境变量")
-    print("   方式1: export XAI_API_KEY=你的key")
-    print("   方式2: 创建.env文件，写入 XAI_API_KEY=你的key")
+API_PROVIDER = os.getenv("API_PROVIDER", "deepseek").lower()
+
+if API_PROVIDER == "xai":
+    API_KEY = os.getenv("XAI_API_KEY")
+    BASE_URL = "https://api.x.ai/v1"
+    MODEL = "grok-2-latest"
+elif API_PROVIDER == "deepseek":
+    API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    BASE_URL = "https://api.deepseek.com"
+    MODEL = "deepseek-chat"  # 或 "deepseek-reasoner"
+else:
+    print(f"❌ 不支持的API提供商: {API_PROVIDER}")
     sys.exit(1)
 
-MODEL = "grok-2-latest"  # 或 "grok-beta" 根据可用性调整
+if not API_KEY:
+    print(f"❌ 错误：请设置 {API_PROVIDER.upper()}_API_KEY 环境变量")
+    print(f"   方式1: export {API_PROVIDER.upper()}_API_KEY=你的key")
+    print(f"   方式2: 创建.env文件，写入 {API_PROVIDER.upper()}_API_KEY=你的key")
+    sys.exit(1)
+
 ROUNDS = 6  # 撕逼轮数
 TEMPERATURE = 0.9  # 创造力高一点更幽默
+MAX_TOKENS = 200
 
 
 class LobsterChat:
@@ -48,21 +53,17 @@ class LobsterChat:
         self.message_callback = None
         self.round_callback = None
         self.log_callback = None
-        self.init_clients()
+        self.init_client()
         self.init_lobsters()
     
-    def init_clients(self):
+    def init_client(self):
         """初始化API客户端"""
-        if USE_XAI_SDK:
-            self.client = Client(api_key=API_KEY)
-            print("✅ 使用 xai-sdk 模式")
-        else:
-            # OpenAI兼容模式
-            self.client = OpenAI(
-                api_key=API_KEY,
-                base_url="https://api.x.ai/v1"
-            )
-            print("✅ 使用 OpenAI兼容模式")
+        self.client = OpenAI(
+            api_key=API_KEY,
+            base_url=BASE_URL
+        )
+        print(f"✅ 使用 {API_PROVIDER.upper()} API 模式")
+        print(f"   模型: {MODEL}")
     
     def init_lobsters(self):
         """为每只龙虾创建独立的chat会话"""
@@ -87,15 +88,10 @@ class LobsterChat:
             personality = LOBSTERS[name]
             full_prompt = f"{personality}\n\n{base_instruction}"
             
-            if USE_XAI_SDK:
-                chat = self.client.chat.create(model=MODEL)
-                chat.append(system(full_prompt))
-                self.chats[name] = chat
-            else:
-                # OpenAI兼容模式存储messages列表
-                self.chats[name] = [
-                    {"role": "system", "content": full_prompt}
-                ]
+            # OpenAI兼容模式存储messages列表
+            self.chats[name] = [
+                {"role": "system", "content": full_prompt}
+            ]
         
         print(f"✅ 已初始化 {len(ORDER)} 只龙虾")
     
@@ -134,26 +130,28 @@ class LobsterChat:
 4. 简短有力，1-2句话"""
         
         try:
-            if USE_XAI_SDK:
-                self.chats[name].append(user(prompt))
-                response = self.chats[name].sample()
-                return response.content.strip()
-            else:
-                # OpenAI兼容模式
-                messages = self.chats[name] + [{"role": "user", "content": prompt}]
-                response = self.client.chat.completions.create(
-                    model=MODEL,
-                    messages=messages,
-                    temperature=TEMPERATURE,
-                    max_tokens=150
-                )
-                content = response.choices[0].message.content.strip()
-                # 保存到历史
-                self.chats[name].append({"role": "user", "content": prompt})
-                self.chats[name].append({"role": "assistant", "content": content})
-                return content
+            # 构建消息
+            messages = self.chats[name] + [{"role": "user", "content": prompt}]
+            
+            response = self.client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS
+            )
+            
+            content = response.choices[0].message.content.strip()
+            
+            # 保存到历史
+            self.chats[name].append({"role": "user", "content": prompt})
+            self.chats[name].append({"role": "assistant", "content": content})
+            
+            return content
+            
         except Exception as e:
-            return f"【{name}掉线了】{str(e)[:50]}..."
+            error_msg = str(e)
+            print(f"❌ API调用错误: {error_msg}")
+            return f"【{name}掉线了】{error_msg[:50]}..."
     
     def run_debate(self, topic="AI人工智能", rounds=None):
         """运行一轮撕逼
@@ -248,7 +246,7 @@ class LobsterChat:
 
 def main():
     """主函数"""
-    print("\n🦞 欢迎使用 AI龙虾群聊系统！\n")
+    print(f"\n🦞 欢迎使用 AI龙虾群聊系统！[{API_PROVIDER.upper()} API]\n")
     
     # 选择话题
     print("可选的热门话题（撕逼效果最佳）：")
