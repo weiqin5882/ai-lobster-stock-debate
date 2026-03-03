@@ -385,21 +385,14 @@
     </div>
     
     <div class="control-panel">
-        <div class="control-group">
-            <label>💬 选择话题:</label>
-            <select id="topicSelect" onchange="onTopicChange()">
-                <option value="">加载中...</option>
-            </select>
-        </div>
-        
-        <div class="control-group" id="customTopicGroup" style="display:none;">
-            <label>✏️ 自定义:</label>
-            <input type="text" id="customTopic" placeholder="输入任何话题..." style="min-width: 200px;">
+        <div class="control-group" style="flex: 1; max-width: 400px;">
+            <label>💬 话题:</label>
+            <input type="text" id="topicInput" placeholder="输入任何话题，如：AI会取代人类吗？" style="flex: 1; min-width: 250px;">
         </div>
         
         <div class="control-group">
             <label>🔄 轮数:</label>
-            <input type="number" id="roundsInput" value="6" min="1" max="10">
+            <input type="number" id="roundsInput" value="6" min="1" max="10" style="width: 70px;">
         </div>
         
         <button class="btn btn-primary" id="startBtn" onclick="startChat()">
@@ -411,14 +404,15 @@
     </div>
     
     <div class="status-bar" id="statusBar">
-        准备就绪 - 选择话题后点击"开始撕逼"
+        准备就绪 - 输入话题后点击"开始撕逼"
     </div>
     
     <div class="chat-container" id="chatContainer">
         <div class="welcome-msg">
             <h2>🦞</h2>
             <p>欢迎来到AI龙虾群聊！</p>
-            <p>选择热门话题或输入自定义话题，看五只龙虾如何互撕</p>
+            <p>输入任何话题，看五只龙虾如何互撕</p>
+            <p style="font-size: 12px; margin-top: 10px; color: #666;">💡 试试：AI会取代人类吗？ / 比特币是骗局吗？ / 咸甜豆腐脑大战</p>
             
             <div class="lobster-legend">
                 <div class="lobster-item">
@@ -469,59 +463,21 @@
             '激进龙虾': { class: 'lobster-aggressive', emoji: '🔥' }
         };
         
-        // 页面加载时获取话题列表
+        // 页面加载时启动日志轮询
         window.onload = function() {
-            loadTopics();
             startLogPolling();
+            addLog('系统就绪，请输入话题开始撕逼', 'info');
+            document.getElementById('topicInput').focus();
         };
-        
-        // 加载话题列表
-        async function loadTopics() {
-            try {
-                const response = await fetch('/api/topics');
-                const data = await response.json();
-                
-                const select = document.getElementById('topicSelect');
-                select.innerHTML = '<option value="">-- 选择热门话题 --</option>' +
-                    data.topics.map(t => 
-                        `<option value="${t.text}">${t.text}</option>`
-                    ).join('') +
-                    '<option value="custom">✏️ 自定义话题...</option>';
-                
-                addLog('话题列表加载完成', 'success');
-            } catch (error) {
-                addLog('加载话题列表失败: ' + error.message, 'error');
-            }
-        }
-        
-        // 话题选择变化
-        function onTopicChange() {
-            const select = document.getElementById('topicSelect');
-            const customGroup = document.getElementById('customTopicGroup');
-            
-            if (select.value === 'custom') {
-                customGroup.style.display = 'flex';
-                document.getElementById('customTopic').focus();
-            } else {
-                customGroup.style.display = 'none';
-            }
-        }
         
         // 开始群聊
         async function startChat() {
-            const topicSelect = document.getElementById('topicSelect');
-            let topic;
+            const topicInput = document.getElementById('topicInput');
+            const topic = topicInput.value.trim();
             
-            if (topicSelect.value === 'custom') {
-                topic = document.getElementById('customTopic').value.trim();
-                if (!topic) {
-                    addLog('请输入自定义话题', 'error');
-                    return;
-                }
-            } else if (topicSelect.value) {
-                topic = topicSelect.value;
-            } else {
-                addLog('请选择或输入话题', 'error');
+            if (!topic) {
+                addLog('请输入话题', 'error');
+                topicInput.focus();
                 return;
             }
             
@@ -546,6 +502,9 @@
                 });
                 
                 const data = await response.json();
+                if (data.status === 'error') {
+                    throw new Error(data.error);
+                }
                 addLog(`群聊开始: ${topic}, ${rounds}轮`, 'success');
                 
                 // 开始轮询状态
@@ -667,7 +626,8 @@
                     <div class="welcome-msg">
                         <h2>🦞</h2>
                         <p>欢迎来到AI龙虾群聊！</p>
-                        <p>选择一支争议股票，看五只龙虾如何互撕</p>
+                        <p>输入任何话题，看五只龙虾如何互撕</p>
+                        <p style="font-size: 12px; margin-top: 10px; color: #666;">💡 试试：AI会取代人类吗？ / 比特币是骗局吗？ / 咸甜豆腐脑大战</p>
                         
                         <div class="lobster-legend">
                             <div class="lobster-item">
@@ -694,8 +654,9 @@
                     </div>
                 `;
                 
-                document.getElementById('statusBar').textContent = '准备就绪 - 选择股票后点击"开始撕逼"';
+                document.getElementById('statusBar').textContent = '准备就绪 - 输入话题后点击"开始撕逼"';
                 document.getElementById('statusBar').className = 'status-bar';
+                document.getElementById('topicInput').value = '';
                 
                 isRunning = false;
                 updateUIState();
@@ -756,20 +717,20 @@
         function updateUIState() {
             const startBtn = document.getElementById('startBtn');
             const clearBtn = document.getElementById('clearBtn');
-            const stockSelect = document.getElementById('stockSelect');
+            const topicInput = document.getElementById('topicInput');
             const roundsInput = document.getElementById('roundsInput');
             
             if (isRunning) {
                 startBtn.disabled = true;
                 startBtn.innerHTML = '<span class="loading"></span> 撕逼中...';
                 clearBtn.disabled = false;
-                stockSelect.disabled = true;
+                topicInput.disabled = true;
                 roundsInput.disabled = true;
             } else {
                 startBtn.disabled = false;
                 startBtn.innerHTML = '▶ 开始撕逼';
                 clearBtn.disabled = false;
-                stockSelect.disabled = false;
+                topicInput.disabled = false;
                 roundsInput.disabled = false;
             }
         }
@@ -780,6 +741,13 @@
             div.textContent = text;
             return div.innerHTML;
         }
+        
+        // 回车键提交
+        document.getElementById('topicInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isRunning) {
+                startChat();
+            }
+        });
     </script>
 </body>
 </html>
